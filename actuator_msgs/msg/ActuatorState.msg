@@ -7,4 +7,4 @@ float32 ic
 float32 position
 float32 speed
 float32 voltage
-string error
+uint16 error

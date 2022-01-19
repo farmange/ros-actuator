@@ -46,11 +46,11 @@ ActuatorDriver::on_configure(const rclcpp_lifecycle::State&)
   init_subscriber_();
 
   comm_ = std::make_shared<RMDComm>(this);
-  int init_result = comm_->init(can_device_param_, static_cast<uint8_t>(reduction_ratio_param_),
-                                static_cast<uint16_t>(max_speed_param_), static_cast<uint32_t>(max_accel_param_),
-                                current_limit_param_);
+  BaseComm::CommStatus_t init_result = comm_->init(can_device_param_, static_cast<uint8_t>(reduction_ratio_param_),
+                                                   static_cast<uint16_t>(max_speed_param_),
+                                                   static_cast<uint32_t>(max_accel_param_), current_limit_param_);
 
-  if (init_result != 0)
+  if (init_result != BaseComm::COMM_STATUS_OK)
   {
     RCLCPP_ERROR(get_logger(), "Cannot initialize communication instance...");
     // armms_msgs::SetInt msgShutdown;

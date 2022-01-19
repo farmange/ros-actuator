@@ -11,25 +11,36 @@
 class CanDriver
 {
 public:
-  typedef struct receiveFrame_s
+  typedef struct ReceiveFrame_s
   {
     struct can_frame frame;
     struct timeval read_tv;
-  } receiveFrame_t;
+  } ReceiveFrame_t;
 
-  typedef struct sendFrame_s
+  typedef struct SendFrame_s
   {
     struct can_frame frame;
-  } sendFrame_t;
+  } SendFrame_t;
+
+  typedef enum DriverStatus_e : uint8_t
+  {
+    DRIVER_STATUS_OK = 0,
+    DRIVER_STATUS_SOCKET_ERR,
+    DRIVER_STATUS_IOCTL_ERR,
+    DRIVER_STATUS_BIND_ERR,
+    DRIVER_STATUS_READ_ERR,
+    DRIVER_STATUS_WRITE_ERR,
+    DRIVER_STATUS_OTHER_ERR
+  } DriverStatus_t;
 
   CanDriver();
 
   // Initialise socket and CAN device
-  int init(const std::string& can_device);
-  int sendReceive(const sendFrame_t& sendframe, receiveFrame_t& receiveframe);
+  DriverStatus_t init(const std::string& can_device);
+  DriverStatus_t sendReceive(const SendFrame_t& sendframe, ReceiveFrame_t& receiveframe);
 
 private:
-  int setTimeOut_(const struct timeval& timeout);  // /!\ use after socket creation
+  DriverStatus_t setTimeOut_(const struct timeval& timeout);  // /!\ use after socket creation
 
   int socket_;
 

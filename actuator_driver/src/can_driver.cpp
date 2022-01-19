@@ -15,7 +15,7 @@ CanDriver::CanDriver()
 {
 }
 
-int CanDriver::init(const std::string& can_device)
+CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
 {
   int ret;
   struct ifreq ifr;
@@ -29,7 +29,7 @@ int CanDriver::init(const std::string& can_device)
   if (socket_ < 0)
   {
     perror("socket PF_CAN failed");
-    return 1;
+    return DRIVER_STATUS_SOCKET_ERR;
   }
 
   // Specify can device
@@ -38,7 +38,7 @@ int CanDriver::init(const std::string& can_device)
   if (ret < 0)
   {
     perror("ioctl failed");
-    return 2;
+    return DRIVER_STATUS_IOCTL_ERR;
   }
 
   // Bind the socket can to send
@@ -48,7 +48,7 @@ int CanDriver::init(const std::string& can_device)
   if (ret < 0)
   {
     perror("bind failed");
-    return 3;
+    return DRIVER_STATUS_BIND_ERR;
   }
 
   // Disable filtering rules, do not receive packets, only send
@@ -62,10 +62,10 @@ int CanDriver::init(const std::string& can_device)
 
   printf("Can initialization done.\n");
 
-  return 0;
+  return DRIVER_STATUS_OK;
 }
 
-int CanDriver::sendReceive(const sendFrame_t& sendframe, receiveFrame_t& receiveframe)
+CanDriver::DriverStatus_t CanDriver::sendReceive(const SendFrame_t& sendframe, ReceiveFrame_t& receiveframe)
 {
   int nbytes = 1;
   struct timeval tv;
@@ -94,35 +94,28 @@ int CanDriver::sendReceive(const sendFrame_t& sendframe, receiveFrame_t& receive
   if (nbytes != sizeof(sendframe.frame))
   {
     printf("Send Error frame[0]!\r\n");
-    return 1;
+    return DRIVER_STATUS_WRITE_ERR;
   }
-
-  usleep(10);  // might not be useful
 
   // Read on socketCan
   nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &len);
 
-  if (nbytes < 1)
+  if (nbytes == 0)
+  {
+    return DRIVER_STATUS_OTHER_ERR;
+  }
+  else if (nbytes < 1)
   {
     perror("Receive failed");
-    return 2;
+    return DRIVER_STATUS_READ_ERR;
   }
 
-  if (nbytes > 0)
-  {
-    return 0;
-  }
-  else
-  {
-    return 1;
-  }
-
-  return 0;
+  return DRIVER_STATUS_OK;
 }
 
-int CanDriver::setTimeOut_(const struct timeval& timeout)
+CanDriver::DriverStatus_t CanDriver::setTimeOut_(const struct timeval& timeout)
 {
   // Settings to get timeout /!\ use after socket creation
   setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
-  return 0;
+  return DRIVER_STATUS_OK;
 }

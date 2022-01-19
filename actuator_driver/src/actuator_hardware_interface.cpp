@@ -22,7 +22,7 @@ void ActuatorHardwareInterface::getState(actuator_msgs::msg::ActuatorState& actu
   actuator_state.position = position_;
   actuator_state.speed = speed_;
   actuator_state.voltage = voltage_;
-  actuator_state.error = error_.c_str();
+  actuator_state.error = error_;
   return;
 }
 
@@ -48,14 +48,15 @@ void ActuatorHardwareInterface::start()
 
 void ActuatorHardwareInterface::read()
 {
-  if (comm_->getState(temperature_, torque_, ia_, ib_, ic_, position_, speed_, voltage_, error_) == 0)
+  if (comm_->getState(temperature_, torque_, ia_, ib_, ic_, position_, speed_, voltage_, error_) ==
+      BaseComm::COMM_STATUS_OK)
   {
     RCLCPP_INFO(node_->get_logger(),
                 "Read actuator state \n"
                 "temp: %2.1f | torque: %2.3f | ia: %2.3f \n"
                 "ib: %2.3f | ic: %2.3f | pos: %4.3f \n"
-                "vel: %3.2f | volt: %2.1f | err: %s",
-                temperature_, torque_, ia_, ib_, ic_, position_, speed_, voltage_, error_.c_str());
+                "vel: %3.2f | volt: %2.1f | err: %x",
+                temperature_, torque_, ia_, ib_, ic_, position_, speed_, voltage_, error_);
   }
   else
   {
@@ -66,7 +67,7 @@ void ActuatorHardwareInterface::read()
 
 void ActuatorHardwareInterface::send_position_cmd()
 {
-  if (comm_->sendPosition(position_command_) == 0)
+  if (comm_->sendPosition(position_command_) == BaseComm::COMM_STATUS_OK)
   {
     RCLCPP_INFO(node_->get_logger(), "Write actuator position command: %f", position_command_);
   }
@@ -79,7 +80,7 @@ void ActuatorHardwareInterface::send_position_cmd()
 
 void ActuatorHardwareInterface::send_torque_cmd()
 {
-  if (comm_->sendTorque(torque_command_) == 0)
+  if (comm_->sendTorque(torque_command_) == BaseComm::COMM_STATUS_OK)
   {
     RCLCPP_INFO(node_->get_logger(), "Write actuator torque command: %f", torque_command_);
   }

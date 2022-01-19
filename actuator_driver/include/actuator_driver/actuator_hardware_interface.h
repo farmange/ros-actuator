@@ -60,7 +60,7 @@ private:
   float position_;
   float speed_;
   float voltage_;
-  std::string error_;
+  uint16_t error_;
 };
 
 #endif

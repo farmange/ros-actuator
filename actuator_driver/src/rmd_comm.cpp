@@ -18,8 +18,8 @@ RMDComm::RMDComm(rclcpp_lifecycle::LifecycleNode* node) : BaseComm(node)
 {
 }
 
-int RMDComm::init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
-                  const int32_t& max_accel, const float& current_limit)
+RMDComm::CommStatus_t RMDComm::init(const std::string& can_device, const uint8_t& reduction_ratio,
+                                    const uint16_t& max_speed, const int32_t& max_accel, const float& current_limit)
 {
   max_speed_ = max_speed;  // 1dps/LSB, 1080/36 = 30 dps (same as partner param);
   max_accel_ = max_accel;  // 1dps² / LSB
@@ -27,10 +27,10 @@ int RMDComm::init(const std::string& can_device, const uint8_t& reduction_ratio,
   current_limit_ = current_limit;  // Amperes
   can_interface_.init(can_device);
   writeAccelData2Ram_(max_accel_);
-  return 0;
+  return RMDComm::COMM_STATUS_OK;
 }
 
-int RMDComm::sendPosition(const float& joint_position_cmd)
+RMDComm::CommStatus_t RMDComm::sendPosition(const float& joint_position_cmd)
 {
   int32_t motor_position = conv_joint_deg_to_motor_pos_(joint_position_cmd);
 
@@ -39,10 +39,10 @@ int RMDComm::sendPosition(const float& joint_position_cmd)
   int16_t dummy_speed;
   uint16_t dummy_encoder;
   positionControlCommand2_(max_speed_, motor_position, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
-  return 0;
+  return RMDComm::COMM_STATUS_OK;
 }
 
-int RMDComm::sendTorque(const float& joint_torque_cmd)
+RMDComm::CommStatus_t RMDComm::sendTorque(const float& joint_torque_cmd)
 {
   int32_t iq_command = conv_joint_torque_to_iq_(joint_torque_cmd);
   int8_t dummy_temperature;
@@ -50,31 +50,33 @@ int RMDComm::sendTorque(const float& joint_torque_cmd)
   int16_t dummy_speed;
   uint16_t dummy_encoder;
   torqueCurrentControlCommand_(iq_command, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
-  return 0;
+  return RMDComm::COMM_STATUS_OK;
 }
 
-void RMDComm::startHardwareControlLoop()
+RMDComm::CommStatus_t RMDComm::startHardwareControlLoop()
 {
 }
-void RMDComm::stopHardwareControlLoop()
+RMDComm::CommStatus_t RMDComm::stopHardwareControlLoop()
 {
 }
 
-void RMDComm::stop()
+RMDComm::CommStatus_t RMDComm::stop()
 {
   motorOffCommand_();
+  return RMDComm::COMM_STATUS_OK;
 }
 
-void RMDComm::start()
+RMDComm::CommStatus_t RMDComm::start()
 {
   motorRunningCommand_();
+  return RMDComm::COMM_STATUS_OK;
 }
 
-int RMDComm::getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position, float& speed,
-                      float& voltage, std::string& error)
+RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float& ia, float& ib, float& ic,
+                                        float& position, float& speed, float& voltage, uint16_t& error)
 {
   int8_t raw_temperature;
-  uint8_t raw_errorstate;
+  uint16_t raw_errorstate;
   int16_t raw_iq, raw_speed;
   int16_t raw_ia, raw_ib, raw_ic;
   uint16_t raw_voltage;
@@ -103,17 +105,18 @@ int RMDComm::getState(float& temperature, float& torque, float& ia, float& ib, f
   position = conv_motor_pos_to_joint_deg_(raw_current_position);
   speed = conv_motor_speed_to_joint_dps_(raw_speed);
   voltage = conv_voltage_to_volt_(raw_voltage);
-  error = std::to_string(raw_errorstate);
+  error = raw_errorstate;
 
   RCLCPP_INFO(node_->get_logger(), "raw_iq: %d (%fA)=> torque: %f ", raw_iq, conv_iq_to_ampere_(raw_iq), torque);
 
-  if (raw_errorstate != 0)
-  {
-    return 1;
-  }
-  return 0;
+  // if (raw_errorstate != 0)
+  // {
+  //   return 1;
+  // }
+  return RMDComm::COMM_STATUS_OK;
 }
 
+/***************************************************/
 // Return the motor position in deg from the joint position
 int32_t RMDComm::conv_joint_deg_to_motor_pos_(const double& joint_deg) const
 {
@@ -176,10 +179,10 @@ int16_t RMDComm::saturate_current_limit_(const int16_t& iq) const
   return iq;
 }
 
-int RMDComm::readMotorStatus1_(int8_t& temperature, uint16_t& voltage, uint8_t& errorstate)
+int RMDComm::readMotorStatus1_(int8_t& temperature, uint16_t& voltage, uint16_t& errorstate)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -196,15 +199,15 @@ int RMDComm::readMotorStatus1_(int8_t& temperature, uint16_t& voltage, uint8_t& 
 
   temperature = receiveframe.frame.data[1];
   voltage = uint16_t(receiveframe.frame.data[3] | (((uint16_t)receiveframe.frame.data[4]) << 8));
-  errorstate = receiveframe.frame.data[7];
+  errorstate = u_int16_t(receiveframe.frame.data[6] | (((u_int16_t)receiveframe.frame.data[7]) << 8));
 
   return 0;
 }
 
 int RMDComm::readMotorStatus2_(int8_t& temperature, int16_t& iq, int16_t& speed, uint16_t& encoder)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -217,7 +220,11 @@ int RMDComm::readMotorStatus2_(int8_t& temperature, int16_t& iq, int16_t& speed,
   sendframe.frame.data[6] = 0;
   sendframe.frame.data[7] = 0;
 
-  can_interface_.sendReceive(sendframe, receiveframe);
+  CanDriver::DriverStatus_t ret = can_interface_.sendReceive(sendframe, receiveframe);
+  if (ret != CanDriver::DRIVER_STATUS_OK)
+  {
+    return ret;
+  }
 
   temperature = receiveframe.frame.data[1];
 
@@ -232,8 +239,8 @@ int RMDComm::readMotorStatus2_(int8_t& temperature, int16_t& iq, int16_t& speed,
 
 int RMDComm::readMotorStatus3_(int16_t& ia, int16_t& ib, int16_t& ic)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -258,8 +265,8 @@ int RMDComm::readMotorStatus3_(int16_t& ia, int16_t& ib, int16_t& ic)
 int RMDComm::speedControlCommand_(const int32_t& speedcontrol, int8_t& temperature, int16_t& iq, int16_t& speed,
                                   int16_t& encoder)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -288,8 +295,8 @@ int RMDComm::speedControlCommand_(const int32_t& speedcontrol, int8_t& temperatu
 int RMDComm::positionControlCommand2_(const uint16_t& maxspeed, const int32_t& anglecontrol, int8_t& temperature,
                                       int16_t& iq, int16_t& speed, uint16_t& encoder)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -319,8 +326,8 @@ int RMDComm::positionControlCommand4_(const int8_t& spindirection, const uint16_
                                       const int16_t& anglecontrol, int8_t& temperature, int16_t& iq, int16_t& speed,
                                       uint16_t& encoder)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -348,8 +355,8 @@ int RMDComm::positionControlCommand4_(const int8_t& spindirection, const uint16_
 
 int RMDComm::writeZeroPositionToRom_()
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -370,8 +377,8 @@ int RMDComm::writeZeroPositionToRom_()
 
 int RMDComm::motorOffCommand_()
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -391,8 +398,8 @@ int RMDComm::motorOffCommand_()
 
 int RMDComm::motorStopCommand_()
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -412,8 +419,8 @@ int RMDComm::motorStopCommand_()
 
 int RMDComm::motorRunningCommand_()
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -433,8 +440,8 @@ int RMDComm::motorRunningCommand_()
 
 int RMDComm::readMultiTurnsAngleCommand_(int64_t& motorangle)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -464,8 +471,8 @@ int RMDComm::readMultiTurnsAngleCommand_(int64_t& motorangle)
 
 int RMDComm::writeEncoderOffsetCommand_(const uint16_t& encoderoffset)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -485,8 +492,8 @@ int RMDComm::writeEncoderOffsetCommand_(const uint16_t& encoderoffset)
 
 int RMDComm::writeAccelData2Ram_(const int32_t& accel)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
@@ -507,8 +514,8 @@ int RMDComm::writeAccelData2Ram_(const int32_t& accel)
 int RMDComm::torqueCurrentControlCommand_(const int16_t& iqcontrol, int8_t& temperature, int16_t& iq, int16_t& speed,
                                           uint16_t& encoder)
 {
-  CanDriver::sendFrame_t sendframe;
-  CanDriver::receiveFrame_t receiveframe;
+  CanDriver::SendFrame_t sendframe;
+  CanDriver::ReceiveFrame_t receiveframe;
 
   int16_t iq_control_limited = saturate_current_limit_(iqcontrol);
   sendframe.frame.can_id = 0x140 + 0x1;

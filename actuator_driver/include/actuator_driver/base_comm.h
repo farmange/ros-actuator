@@ -9,27 +9,37 @@
 class BaseComm
 {
 public:
+  typedef enum CommStatus_e : uint8_t
+  {
+    COMM_STATUS_OK = 0,
+    COMM_STATUS_INIT_ERR,
+    COMM_STATUS_READ_ERR,
+    COMM_STATUS_WRITE_ERR,
+    COMM_STATUS_OTHER_ERR
+  } CommStatus_t;
+
+public:
   BaseComm(rclcpp_lifecycle::LifecycleNode* node) : node_(node){};
   // virtual ~BaseComm()
   // {
   // }
 
-  virtual int init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
-                   const int32_t& max_accel, const float& current_limit) = 0;
+  virtual CommStatus_t init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
+                            const int32_t& max_accel, const float& current_limit) = 0;
   // virtual int read() = 0;
   // virtual int write() = 0;
 
   /* Send position in degree */
-  virtual int sendPosition(const float& joint_position_cmd) = 0;
-  virtual int sendTorque(const float& joint_torque_cmd) = 0;
+  virtual CommStatus_t sendPosition(const float& joint_position_cmd) = 0;
+  virtual CommStatus_t sendTorque(const float& joint_torque_cmd) = 0;
 
-  virtual void startHardwareControlLoop() = 0;
-  virtual void stopHardwareControlLoop() = 0;
-  virtual void stop() = 0;
-  virtual void start() = 0;
+  virtual CommStatus_t startHardwareControlLoop() = 0;
+  virtual CommStatus_t stopHardwareControlLoop() = 0;
+  virtual CommStatus_t stop() = 0;
+  virtual CommStatus_t start() = 0;
 
-  virtual int getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position,
-                       float& speed, float& voltage, std::string& error) = 0;
+  virtual CommStatus_t getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position,
+                                float& speed, float& voltage, uint16_t& error) = 0;
 
 protected:
   rclcpp_lifecycle::LifecycleNode* node_;

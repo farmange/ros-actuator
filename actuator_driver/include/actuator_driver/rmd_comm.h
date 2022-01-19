@@ -17,19 +17,19 @@ public:
   RMDComm(rclcpp_lifecycle::LifecycleNode* node);
 
   /* TODO : interface impl */
-  int init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
-           const int32_t& max_accel, const float& current_limit);
+  CommStatus_t init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
+                    const int32_t& max_accel, const float& current_limit);
   // Initialise socket and CAN device
-  int sendPosition(const float& joint_position_cmd);
-  int sendTorque(const float& joint_torque_cmd);
+  CommStatus_t sendPosition(const float& joint_position_cmd);
+  CommStatus_t sendTorque(const float& joint_torque_cmd);
 
-  void startHardwareControlLoop();
-  void stopHardwareControlLoop();
-  void stop();
-  void start();
+  CommStatus_t startHardwareControlLoop();
+  CommStatus_t stopHardwareControlLoop();
+  CommStatus_t stop();
+  CommStatus_t start();
 
-  int getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position, float& speed,
-               float& voltage, std::string& error);
+  CommStatus_t getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position,
+                        float& speed, float& voltage, uint16_t& error);
 
 private:
   // Return the motor position in deg from the joint position
@@ -51,7 +51,7 @@ private:
 
   // Read the motor's error status and voltage, temperature and
   // other information
-  int readMotorStatus1_(int8_t& temperature1, uint16_t& voltage, uint8_t& errorstate);
+  int readMotorStatus1_(int8_t& temperature1, uint16_t& voltage, uint16_t& errorstate);
 
   // Read motor temperature, voltage, speed, encoder position
   int readMotorStatus2_(int8_t& temperature2, int16_t& iq, int16_t& speed, uint16_t& encoder);
