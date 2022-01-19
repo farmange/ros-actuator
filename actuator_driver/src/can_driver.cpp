@@ -101,38 +101,19 @@ int CanDriver::sendReceive(const sendFrame_t& sendframe, receiveFrame_t& receive
 
   // Read on socketCan
   nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &len);
-  // printf("socket_: %d\n", (int)&addr_);
-  // for(int i=0;i<14;i++)
-  // {
-  //     printf("addr_.sa_data[%d]: %d\n",i ,  ((uint8_t)addr_)[i]);
-  // }
+
   if (nbytes < 1)
   {
     perror("Receive failed");
     return 2;
   }
 
-  /*Get timestamp of the read frame
-  struct timeval read_tv;
-  ioctl(socket_, SIOCGSTAMP, &read_tv);
-  receiveframe.read_tv.tv_sec = read_tv.tv_sec;
-  receiveframe.read_tv.tv_usec = read_tv.tv_usec;
-  */
-
   if (nbytes > 0)
   {
-    /*printf("> can_id = 0x%X || > can_dlc = %d \r\n", receiveframe.frame.can_id,
-    receiveframe.frame.can_dlc);*/
-    /*
-    int i = 0;
-    for(i = 0; i < 8; i++)
-        printf("data[%d] = 0x%X\r\n", i, receiveframe.frame.data[i]);
-    */
     return 0;
   }
   else
   {
-    printf("nbytes = 0\n");
     return 1;
   }
 

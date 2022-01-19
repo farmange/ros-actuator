@@ -1,0 +1,3 @@
+ControlMode mode    # set desired control mode 
+---
+bool success        # indicate successful change of control mode

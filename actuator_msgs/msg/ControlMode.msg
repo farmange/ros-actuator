@@ -1,0 +1,4 @@
+uint8 ID_MODE_OFF = 0
+uint8 ID_MODE_TORQUE = 1
+uint8 ID_MODE_POSITION = 2
+uint8 id

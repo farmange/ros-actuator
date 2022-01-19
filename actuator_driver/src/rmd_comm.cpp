@@ -12,25 +12,28 @@
 #include "actuator_driver/rmd_comm.h"
 
 const uint8_t RMDComm::ANGLE_TO_DEG = 100;
+const float RMDComm::TORQUE_CONSTANT = 6.92;  // Nm/A (given in datasheet for gearbox output side)
 
-RMDComm::RMDComm(rclcpp::Node* node) : BaseComm(node)
+RMDComm::RMDComm(rclcpp_lifecycle::LifecycleNode* node) : BaseComm(node)
 {
 }
 
 int RMDComm::init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
-                  const int32_t& max_accel)
+                  const int32_t& max_accel, const float& current_limit)
 {
+  max_speed_ = max_speed;  // 1dps/LSB, 1080/36 = 30 dps (same as partner param);
+  max_accel_ = max_accel;  // 1dps² / LSB
+  reduction_ratio_ = reduction_ratio;
+  current_limit_ = current_limit;  // Amperes
   can_interface_.init(can_device);
-  // uint32_t max_accel = 700;  // 1dps² / LSB
   writeAccelData2Ram_(max_accel_);
   return 0;
 }
-/**********/
-int RMDComm::sendPosition(const float& joint_position)
-{
-  int32_t motor_position = degToMotorPos_(joint_position);
 
-  // int16_t maxspeed = 1080;  // 1dps/LSB, 1080/36 = 30 dps (same as partner param);
+int RMDComm::sendPosition(const float& joint_position_cmd)
+{
+  int32_t motor_position = conv_joint_deg_to_motor_pos_(joint_position_cmd);
+
   int8_t dummy_temperature;
   int16_t dummy_iq;
   int16_t dummy_speed;
@@ -38,9 +41,18 @@ int RMDComm::sendPosition(const float& joint_position)
   positionControlCommand2_(max_speed_, motor_position, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
   return 0;
 }
-void RMDComm::getCurrentPosition(float position)
+
+int RMDComm::sendTorque(const float& joint_torque_cmd)
 {
+  int32_t iq_command = conv_joint_torque_to_iq_(joint_torque_cmd);
+  int8_t dummy_temperature;
+  int16_t dummy_iq;
+  int16_t dummy_speed;
+  uint16_t dummy_encoder;
+  torqueCurrentControlCommand_(iq_command, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
+  return 0;
 }
+
 void RMDComm::startHardwareControlLoop()
 {
 }
@@ -58,7 +70,7 @@ void RMDComm::start()
   motorRunningCommand_();
 }
 
-int RMDComm::getState(float& temperature, float& iq, float& ia, float& ib, float& ic, float& position, float& speed,
+int RMDComm::getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position, float& speed,
                       float& voltage, std::string& error)
 {
   int8_t raw_temperature;
@@ -84,14 +96,16 @@ int RMDComm::getState(float& temperature, float& iq, float& ia, float& ib, float
   readMotorStatus3_(raw_ia, raw_ib, raw_ic);
 
   temperature = raw_temperature;
-  iq = ((raw_iq * 33.) / 2048.);
-  ia = (raw_ia / 64.);
-  ib = (raw_ib / 64.);
-  ic = (raw_ic / 64.);
-  position = motorPosToDeg_(raw_current_position);
-  speed = (raw_speed / 36.);
-  voltage = (raw_voltage / 10.);
+  torque = conv_iq_to_joint_torque_(raw_iq);
+  ia = conv_iabc_to_ampere_(raw_ia);
+  ib = conv_iabc_to_ampere_(raw_ib);
+  ic = conv_iabc_to_ampere_(raw_ic);
+  position = conv_motor_pos_to_joint_deg_(raw_current_position);
+  speed = conv_motor_speed_to_joint_dps_(raw_speed);
+  voltage = conv_voltage_to_volt_(raw_voltage);
   error = std::to_string(raw_errorstate);
+
+  RCLCPP_INFO(node_->get_logger(), "raw_iq: %d (%fA)=> torque: %f ", raw_iq, conv_iq_to_ampere_(raw_iq), torque);
 
   if (raw_errorstate != 0)
   {
@@ -101,16 +115,66 @@ int RMDComm::getState(float& temperature, float& iq, float& ia, float& ib, float
 }
 
 // Return the motor position in deg from the joint position
-int32_t RMDComm::degToMotorPos_(const double& joint_pos)
+int32_t RMDComm::conv_joint_deg_to_motor_pos_(const double& joint_deg) const
 {
-  return (int32_t)(joint_pos * reduction_ratio_ * ANGLE_TO_DEG);
-};
+  return static_cast<int32_t>(joint_deg * reduction_ratio_ * ANGLE_TO_DEG);
+}
 
 // Return the joint position in deg from the motor position
-double RMDComm::motorPosToDeg_(const int32_t& motor_pos)
+double RMDComm::conv_motor_pos_to_joint_deg_(const int32_t& motor_pos) const
 {
-  return (((double)motor_pos) / (reduction_ratio_ * ANGLE_TO_DEG));
-};
+  return ((static_cast<double>(motor_pos)) / (reduction_ratio_ * ANGLE_TO_DEG));
+}
+
+int16_t RMDComm::conv_joint_torque_to_iq_(const float& torque) const
+{
+  return (conv_ampere_to_iq_(torque / (TORQUE_CONSTANT * reduction_ratio_)));
+}
+float RMDComm::conv_iq_to_joint_torque_(const int16_t iq) const
+{
+  return conv_iq_to_ampere_(iq) * TORQUE_CONSTANT;
+}
+
+float RMDComm::conv_iq_to_ampere_(const int16_t iq) const
+{
+  return static_cast<float>((iq * 33.) / 2048.);
+}
+
+int16_t RMDComm::conv_ampere_to_iq_(const float ampere) const
+{
+  return static_cast<int16_t>((ampere * 2000.) / 32.);
+}
+
+float RMDComm::conv_iabc_to_ampere_(const int16_t iabc) const
+{
+  return (static_cast<float>(iabc) / 64.);
+}
+
+float RMDComm::conv_motor_speed_to_joint_dps_(const int16_t motor_speed) const
+{
+  return (static_cast<float>(motor_speed) / reduction_ratio_);
+}
+
+float RMDComm::conv_voltage_to_volt_(const uint16_t voltage) const
+{
+  return (static_cast<float>(voltage) / 10.);
+}
+
+int16_t RMDComm::saturate_current_limit_(const int16_t& iq) const
+{
+  if (iq > conv_ampere_to_iq_(current_limit_))
+  {
+    return conv_ampere_to_iq_(current_limit_);
+  }
+  else
+  {
+    if (iq < conv_ampere_to_iq_(-current_limit_))
+    {
+      return conv_ampere_to_iq_(-current_limit_);
+    }
+  }
+  return iq;
+}
 
 int RMDComm::readMotorStatus1_(int8_t& temperature, uint16_t& voltage, uint8_t& errorstate)
 {
@@ -271,6 +335,12 @@ int RMDComm::positionControlCommand4_(const int8_t& spindirection, const uint16_
 
   can_interface_.sendReceive(sendframe, receiveframe);
 
+  temperature = receiveframe.frame.data[1];
+
+  iq = u_int16_t(receiveframe.frame.data[2] | (((u_int16_t)receiveframe.frame.data[3]) << 8));
+
+  speed = u_int16_t(receiveframe.frame.data[4] | (((u_int16_t)receiveframe.frame.data[5]) << 8));
+
   encoder = u_int16_t(receiveframe.frame.data[6] | (((u_int16_t)receiveframe.frame.data[7]) << 8));
 
   return 0;
@@ -405,8 +475,8 @@ int RMDComm::writeEncoderOffsetCommand_(const uint16_t& encoderoffset)
   sendframe.frame.data[3] = 0x00;
   sendframe.frame.data[4] = 0x00;
   sendframe.frame.data[5] = 0x00;
-  sendframe.frame.data[6] = 0x00;
-  sendframe.frame.data[7] = 0x00;
+  sendframe.frame.data[6] = *((u_int8_t*)(&encoderoffset) + 0);
+  sendframe.frame.data[7] = *((u_int8_t*)(&encoderoffset) + 1);
 
   can_interface_.sendReceive(sendframe, receiveframe);
 
@@ -434,25 +504,33 @@ int RMDComm::writeAccelData2Ram_(const int32_t& accel)
   return 0;
 }
 
-int RMDComm::torqueCurrentControlCommand_(const int16_t& iqcontrol, int16_t& iq)
+int RMDComm::torqueCurrentControlCommand_(const int16_t& iqcontrol, int8_t& temperature, int16_t& iq, int16_t& speed,
+                                          uint16_t& encoder)
 {
   CanDriver::sendFrame_t sendframe;
   CanDriver::receiveFrame_t receiveframe;
 
+  int16_t iq_control_limited = saturate_current_limit_(iqcontrol);
   sendframe.frame.can_id = 0x140 + 0x1;
   sendframe.frame.can_dlc = 8;
   sendframe.frame.data[0] = 0xA1;
   sendframe.frame.data[1] = 0x00;
   sendframe.frame.data[2] = 0x00;
   sendframe.frame.data[3] = 0x00;
-  sendframe.frame.data[4] = *((uint8_t*)(&iqcontrol) + 0);
-  sendframe.frame.data[5] = *((uint8_t*)(&iqcontrol) + 1);
+  sendframe.frame.data[4] = *((uint8_t*)(&iq_control_limited) + 0);
+  sendframe.frame.data[5] = *((uint8_t*)(&iq_control_limited) + 1);
   sendframe.frame.data[6] = 0x00;
   sendframe.frame.data[7] = 0x00;
 
   can_interface_.sendReceive(sendframe, receiveframe);
 
-  iq = uint16_t(receiveframe.frame.data[2] | (((uint16_t)receiveframe.frame.data[3]) << 8));
+  temperature = receiveframe.frame.data[1];
+
+  iq = u_int16_t(receiveframe.frame.data[2] | (((u_int16_t)receiveframe.frame.data[3]) << 8));
+
+  speed = u_int16_t(receiveframe.frame.data[4] | (((u_int16_t)receiveframe.frame.data[5]) << 8));
+
+  encoder = u_int16_t(receiveframe.frame.data[6] | (((u_int16_t)receiveframe.frame.data[7]) << 8));
 
   return 0;
 }

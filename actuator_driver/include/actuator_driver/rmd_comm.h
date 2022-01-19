@@ -11,29 +11,43 @@
 class RMDComm : public BaseComm
 {
   static const uint8_t ANGLE_TO_DEG;
+  static const float TORQUE_CONSTANT;
 
 public:
-  RMDComm(rclcpp::Node* node);
+  RMDComm(rclcpp_lifecycle::LifecycleNode* node);
 
   /* TODO : interface impl */
   int init(const std::string& can_device, const uint8_t& reduction_ratio, const uint16_t& max_speed,
-           const int32_t& max_accel);
+           const int32_t& max_accel, const float& current_limit);
   // Initialise socket and CAN device
-  int sendPosition(const float& cmd);
-  void getCurrentPosition(float position);
+  int sendPosition(const float& joint_position_cmd);
+  int sendTorque(const float& joint_torque_cmd);
+
   void startHardwareControlLoop();
   void stopHardwareControlLoop();
   void stop();
   void start();
 
-  int getState(float& temperature, float& iq, float& ia, float& ib, float& ic, float& position, float& speed,
+  int getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position, float& speed,
                float& voltage, std::string& error);
 
 private:
-  int32_t degToMotorPos_(const double& joint_pos);
+  // Return the motor position in deg from the joint position
+  int32_t conv_joint_deg_to_motor_pos_(const double& joint_deg) const;
 
   // Return the joint position in deg from the motor position
-  double motorPosToDeg_(const int32_t& motor_pos);
+  double conv_motor_pos_to_joint_deg_(const int32_t& motor_pos) const;
+  int16_t conv_joint_torque_to_iq_(const float& torque) const;
+  float conv_iq_to_joint_torque_(const int16_t iq) const;
+
+  float conv_iq_to_ampere_(const int16_t iq) const;
+  int16_t conv_ampere_to_iq_(const float ampere) const;
+
+  float conv_iabc_to_ampere_(const int16_t iabc) const;
+  float conv_motor_speed_to_joint_dps_(const int16_t motor_speed) const;
+  float conv_voltage_to_volt_(const uint16_t voltage) const;
+
+  int16_t saturate_current_limit_(const int16_t& iq) const;
 
   // Read the motor's error status and voltage, temperature and
   // other information
@@ -88,7 +102,8 @@ private:
 
   // The host sends the command to control torque current output of the motor. Iq Control is int16_t type, the value
   // range: -2000~2000, corresponding to the actual torque current range -32A~32A
-  int torqueCurrentControlCommand_(const int16_t& iqcontrol, int16_t& iq);
+  int torqueCurrentControlCommand_(const int16_t& iqcontrol, int8_t& temperature, int16_t& iq, int16_t& speed,
+                                   uint16_t& encoder);
 
 private:
   CanDriver can_interface_;

@@ -1,0 +1,7 @@
+/rmd_actuator/actuator_driver:
+   ros__parameters:
+      can_device: "can0"
+      actuator_reduction_ratio: 36
+      actuator_max_speed: 1080 # 30 deg/s * 36
+      actuator_max_accel: 700 # 19.44 deg/s²* 36
+      actuator_current_limit: 0.1 # A

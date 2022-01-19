@@ -1,6 +1,6 @@
 float32 position_command
 float32 temperature
-float32 iq
+float32 torque
 float32 ia
 float32 ib
 float32 ic
