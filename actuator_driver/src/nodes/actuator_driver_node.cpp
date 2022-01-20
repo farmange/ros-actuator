@@ -53,9 +53,6 @@ ActuatorDriver::on_configure(const rclcpp_lifecycle::State&)
   if (init_result != BaseComm::COMM_STATUS_OK)
   {
     RCLCPP_ERROR(get_logger(), "Cannot initialize communication instance...");
-    // armms_msgs::SetInt msgShutdown;
-    // msgShutdown.request.value = 1;  // shutdown
-    // ros::shutdown();
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
   }
   RCLCPP_INFO(get_logger(), "ARMMS communication has been successfully started");

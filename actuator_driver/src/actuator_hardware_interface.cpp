@@ -19,6 +19,7 @@ void ActuatorHardwareInterface::getState(actuator_msgs::msg::ActuatorState& actu
   actuator_state.ia = ia_;
   actuator_state.ib = ib_;
   actuator_state.ic = ic_;
+  actuator_state.ic = iq_;
   actuator_state.position = position_;
   actuator_state.speed = speed_;
   actuator_state.voltage = voltage_;
@@ -48,15 +49,15 @@ void ActuatorHardwareInterface::start()
 
 void ActuatorHardwareInterface::read()
 {
-  if (comm_->getState(temperature_, torque_, ia_, ib_, ic_, position_, speed_, voltage_, error_) ==
+  if (comm_->getState(temperature_, torque_, ia_, ib_, ic_, iq_, position_, speed_, voltage_, error_) ==
       BaseComm::COMM_STATUS_OK)
   {
     RCLCPP_INFO(node_->get_logger(),
                 "Read actuator state \n"
-                "temp: %2.1f | torque: %2.3f | ia: %2.3f \n"
-                "ib: %2.3f | ic: %2.3f | pos: %4.3f \n"
+                "temp: %2.1f | torque: %2.3f | iq: %2.3f \n"
+                "ia: %2.3f | ib: %2.3f | ic: %2.3f | pos: %4.3f \n"
                 "vel: %3.2f | volt: %2.1f | err: %x",
-                temperature_, torque_, ia_, ib_, ic_, position_, speed_, voltage_, error_);
+                temperature_, torque_, iq_, ia_, ib_, ic_, position_, speed_, voltage_, error_);
   }
   else
   {

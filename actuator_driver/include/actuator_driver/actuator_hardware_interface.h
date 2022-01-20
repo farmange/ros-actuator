@@ -57,6 +57,7 @@ private:
   float ia_;
   float ib_;
   float ic_;
+  float iq_;
   float position_;
   float speed_;
   float voltage_;

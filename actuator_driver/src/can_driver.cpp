@@ -85,7 +85,7 @@ CanDriver::DriverStatus_t CanDriver::sendReceive(const SendFrame_t& sendframe, R
   }
 
   // Set back timeout to a value for write or read on socketCan
-  tv.tv_usec = 1000;
+  tv.tv_usec = 1000;  // 1000
   setTimeOut_(tv);
 
   // Write on socketCan
@@ -96,6 +96,8 @@ CanDriver::DriverStatus_t CanDriver::sendReceive(const SendFrame_t& sendframe, R
     printf("Send Error frame[0]!\r\n");
     return DRIVER_STATUS_WRITE_ERR;
   }
+
+  usleep(10);
 
   // Read on socketCan
   nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &len);

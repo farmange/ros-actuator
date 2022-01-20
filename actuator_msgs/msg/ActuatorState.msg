@@ -4,6 +4,7 @@ float32 torque
 float32 ia
 float32 ib
 float32 ic
+float32 iq
 float32 position
 float32 speed
 float32 voltage

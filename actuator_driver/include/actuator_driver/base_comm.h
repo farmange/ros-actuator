@@ -38,8 +38,8 @@ public:
   virtual CommStatus_t stop() = 0;
   virtual CommStatus_t start() = 0;
 
-  virtual CommStatus_t getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& position,
-                                float& speed, float& voltage, uint16_t& error) = 0;
+  virtual CommStatus_t getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& iq,
+                                float& position, float& speed, float& voltage, uint16_t& error) = 0;
 
 protected:
   rclcpp_lifecycle::LifecycleNode* node_;
