@@ -20,7 +20,7 @@ ActuatorDriver::ActuatorDriver(const std::string& node_name, bool intra_process_
   this->declare_parameter<int>("actuator_reduction_ratio", 36);
   this->declare_parameter<int>("actuator_max_speed", 1080);
   this->declare_parameter<int>("actuator_max_accel", 700);
-  this->declare_parameter<double>("actuator_current_limit", 0.0);
+  this->declare_parameter<float>("actuator_current_limit", 0.0);
 
   control_mode_.id = ControlModeMsg::ID_MODE_OFF;
 }
@@ -42,8 +42,8 @@ ActuatorDriver::on_configure(const rclcpp_lifecycle::State&)
 
   init_parameters_();
   init_services_();
-  init_publisher_();
-  init_subscriber_();
+  init_publishers_();
+  init_subscribers_();
 
   comm_ = std::make_shared<RMDComm>(this);
   BaseComm::CommStatus_t init_result = comm_->init(can_device_param_, static_cast<uint8_t>(reduction_ratio_param_),
@@ -58,7 +58,7 @@ ActuatorDriver::on_configure(const rclcpp_lifecycle::State&)
   RCLCPP_INFO(get_logger(), "ARMMS communication has been successfully started");
 
   RCLCPP_INFO(get_logger(), "Initialize hardware interface");
-  actuator_ = std::make_shared<ActuatorHardwareInterface>(this, comm_);
+  actuator_ = std::make_shared<ActuatorHardwareInterface>(this, comm_, current_limit_param_);
   actuator_stop_();
 
   RCLCPP_INFO(get_logger(), "Initialize timer for control loop");
@@ -108,8 +108,8 @@ ActuatorDriver::on_cleanup(const rclcpp_lifecycle::State&)
   timer_.reset();
 
   clear_services_();
-  clear_publisher_();
-  clear_subscriber_();
+  clear_publishers_();
+  clear_subscribers_();
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -145,12 +145,12 @@ void ActuatorDriver::init_services_()
       "set_control_mode", std::bind(&ActuatorDriver::set_control_mode_srv_cb_, this, _1, _2));
 }
 
-void ActuatorDriver::init_publisher_()
+void ActuatorDriver::init_publishers_()
 {
   actuator_state_pub_ = this->create_publisher<actuator_msgs::msg::ActuatorState>("actuator_state", 1);
 }
 
-void ActuatorDriver::init_subscriber_()
+void ActuatorDriver::init_subscribers_()
 {
   position_command_sub_ = this->create_subscription<std_msgs::msg::Float32>(
       "position_command", 1, std::bind(&ActuatorDriver::position_command_cb_, this, _1));
@@ -163,12 +163,12 @@ void ActuatorDriver::clear_services_()
   set_control_mode_srv_.reset();
 }
 
-void ActuatorDriver::clear_publisher_()
+void ActuatorDriver::clear_publishers_()
 {
   actuator_state_pub_.reset();
 }
 
-void ActuatorDriver::clear_subscriber_()
+void ActuatorDriver::clear_subscribers_()
 {
   position_command_sub_.reset();
   torque_command_sub_.reset();
@@ -195,6 +195,10 @@ void ActuatorDriver::control_loop_cb_()
   }
 
   actuator_->getState(actuator_state_);
+
+  // Fill message with control mode for user feedback
+  actuator_state_.mode = control_mode_;
+
   actuator_state_pub_->publish(actuator_state_);
   // RCLCPP_INFO(get_logger(), "ActuatorDriver::control_loop_cb_ end...");
 }
@@ -215,7 +219,7 @@ void ActuatorDriver::set_control_mode_srv_cb_(
     const std::shared_ptr<actuator_msgs::srv::SetControlMode::Request> request,
     std::shared_ptr<actuator_msgs::srv::SetControlMode::Response> response)
 {
-  RCLCPP_DEBUG(this->get_logger(), "set_control_mode_srv_cb_");
+  RCLCPP_DEBUG(this->get_logger(), "Set control mode request received : %d", request->mode.id);
   if ((request->mode.id == ControlModeMsg::ID_MODE_OFF) || (request->mode.id == ControlModeMsg::ID_MODE_TORQUE) ||
       (request->mode.id == ControlModeMsg::ID_MODE_POSITION))
   {
@@ -233,15 +237,16 @@ void ActuatorDriver::actuator_stop_()
   control_mode_.id = ControlModeMsg::ID_MODE_OFF;
   actuator_->stop();
 }
+
 int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
   rclcpp::executors::SingleThreadedExecutor exe;
-  std::shared_ptr<ActuatorDriver> actuator_driver_node = std::make_shared<ActuatorDriver>("actuator_driver_node");
-  exe.add_node(actuator_driver_node->get_node_base_interface());
-  RCLCPP_INFO(actuator_driver_node->get_logger(), "Start spinning \'%s\'...", actuator_driver_node->get_name());
+  std::shared_ptr<ActuatorDriver> node = std::make_shared<ActuatorDriver>("actuator_driver");
+  exe.add_node(node->get_node_base_interface());
+  RCLCPP_INFO(node->get_logger(), "Start spinning \'%s\'...", node->get_name());
   exe.spin();
-  RCLCPP_INFO(actuator_driver_node->get_logger(), "Shutting down \'%s\'...", actuator_driver_node->get_name());
+  RCLCPP_INFO(node->get_logger(), "Shutting down \'%s\'...", node->get_name());
   rclcpp::shutdown();
 
   return 0;

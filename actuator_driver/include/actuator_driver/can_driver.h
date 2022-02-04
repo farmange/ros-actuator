@@ -34,14 +34,14 @@ public:
   } DriverStatus_t;
 
   CanDriver();
-
+  ~CanDriver();
   // Initialise socket and CAN device
   DriverStatus_t init(const std::string& can_device);
   DriverStatus_t sendReceive(const SendFrame_t& sendframe, ReceiveFrame_t& receiveframe);
 
 private:
   DriverStatus_t setTimeOut_(const struct timeval& timeout);  // /!\ use after socket creation
-
+  std::string can_device_;
   int socket_;
 
   struct timeval tv_;

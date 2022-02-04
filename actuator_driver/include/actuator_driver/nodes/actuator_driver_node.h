@@ -19,7 +19,6 @@
 #include "actuator_driver/base_comm.h"
 #include "actuator_driver/actuator_hardware_interface.h"
 
-// #include "lifecycle_msgs/msg/transition.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 // #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
 
@@ -43,12 +42,12 @@ private:
                                 std::shared_ptr<SetControlModeSrv::Response> response);
   void init_parameters_();
   void init_services_();
-  void init_publisher_();
-  void init_subscriber_();
+  void init_publishers_();
+  void init_subscribers_();
 
   void clear_services_();
-  void clear_publisher_();
-  void clear_subscriber_();
+  void clear_publishers_();
+  void clear_subscribers_();
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_configure(const rclcpp_lifecycle::State&);
@@ -72,7 +71,8 @@ private:
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr torque_command_sub_;
 
   // rclcpp::Publisher<actuator_msgs::msg::ActuatorState>::SharedPtr actuator_state_pub_;
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<actuator_msgs::msg::ActuatorState>> actuator_state_pub_;
+  // std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<actuator_msgs::msg::ActuatorState>> actuator_state_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<actuator_msgs::msg::ActuatorState>::SharedPtr actuator_state_pub_;
 
   rclcpp::Service<SetControlModeSrv>::SharedPtr set_control_mode_srv_;
   rclcpp::TimerBase::SharedPtr timer_;

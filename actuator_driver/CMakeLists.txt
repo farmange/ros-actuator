@@ -42,11 +42,6 @@ set(actuator_driver_SRC
 add_executable(${PROJECT_NAME} ${actuator_driver_SRC})
 ament_target_dependencies(${PROJECT_NAME} rclcpp std_msgs std_srvs actuator_msgs rclcpp_lifecycle lifecycle_msgs)
 
-# target_include_directories(${PROJECT_NAME} 
-#   PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>)
-
 install(TARGETS
   ${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME})

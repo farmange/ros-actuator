@@ -38,14 +38,14 @@ private:
   // Return the joint position in deg from the motor position
   double conv_motor_pos_to_joint_deg_(const int32_t& motor_pos) const;
   int16_t conv_joint_torque_to_iq_(const float& torque) const;
-  float conv_iq_to_joint_torque_(const int16_t iq) const;
+  float conv_iq_to_joint_torque_(const int16_t& iq) const;
 
-  float conv_iq_to_ampere_(const int16_t iq) const;
-  int16_t conv_ampere_to_iq_(const float ampere) const;
+  float conv_iq_to_ampere_(const int16_t& iq) const;
+  int16_t conv_ampere_to_iq_(const float& ampere) const;
 
-  float conv_iabc_to_ampere_(const int16_t iabc) const;
-  float conv_motor_speed_to_joint_dps_(const int16_t motor_speed) const;
-  float conv_voltage_to_volt_(const uint16_t voltage) const;
+  float conv_iabc_to_ampere_(const int16_t& iabc) const;
+  float conv_motor_speed_to_joint_dps_(const int16_t& motor_speed) const;
+  float conv_voltage_to_volt_(const uint16_t& voltage) const;
 
   int16_t saturate_current_limit_(const int16_t& iq) const;
 

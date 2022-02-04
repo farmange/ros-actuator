@@ -1,3 +1,4 @@
+float32 torque_command
 float32 position_command
 float32 temperature
 float32 torque
@@ -9,3 +10,4 @@ float32 position
 float32 speed
 float32 voltage
 uint16 error
+ControlMode mode

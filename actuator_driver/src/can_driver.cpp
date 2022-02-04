@@ -15,13 +15,20 @@ CanDriver::CanDriver()
 {
 }
 
+CanDriver::~CanDriver()
+{
+  // std::string system_str = std::string("sudo ip link set ") + can_device_ + std::string(" down");
+  // system(system_str.c_str());
+}
+
 CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
 {
   int ret;
   struct ifreq ifr;
-  std::string system_str = std::string("sudo ip link set ") + can_device + std::string(" type can bitrate 1000000");
+  can_device_ = can_device;
+  std::string system_str = std::string("sudo ip link set ") + can_device_ + std::string(" type can bitrate 1000000");
   system(system_str.c_str());
-  system_str = std::string("sudo ifconfig ") + can_device + std::string(" up");
+  system_str = std::string("sudo ifconfig ") + can_device_ + std::string(" up");
   system(system_str.c_str());
 
   // Create socket
@@ -33,7 +40,7 @@ CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
   }
 
   // Specify can device
-  strcpy(ifr.ifr_name, can_device.c_str());
+  strcpy(ifr.ifr_name, can_device_.c_str());
   ret = ioctl(socket_, SIOCGIFINDEX, &ifr);
   if (ret < 0)
   {
@@ -79,9 +86,8 @@ CanDriver::DriverStatus_t CanDriver::sendReceive(const SendFrame_t& sendframe, R
   // Empty the buffer before reading it
   while (nbytes > 0)
   {
-    // printf("Empty the buffer.\n");
+    // Empty the buffer
     nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &len);
-    // printf("%d bytes read.\n", nbytes);
   }
 
   // Set back timeout to a value for write or read on socketCan
@@ -93,7 +99,7 @@ CanDriver::DriverStatus_t CanDriver::sendReceive(const SendFrame_t& sendframe, R
 
   if (nbytes != sizeof(sendframe.frame))
   {
-    printf("Send Error frame[0]!\r\n");
+    printf("Send Error frame : nbytes != sizeof(sendframe.frame) !\n");
     return DRIVER_STATUS_WRITE_ERR;
   }
 

@@ -36,7 +36,8 @@ RMDComm::CommStatus_t RMDComm::init(const std::string& can_device, const uint8_t
 RMDComm::CommStatus_t RMDComm::sendPosition(const float& joint_position_cmd)
 {
   int32_t motor_position = conv_joint_deg_to_motor_pos_(joint_position_cmd);
-
+  RCLCPP_DEBUG(node_->get_logger(), "RMDComm: Send position command %f° (raw motor position: %d)", joint_position_cmd,
+               motor_position);
   int8_t dummy_temperature;
   int16_t dummy_iq;
   int16_t dummy_speed;
@@ -47,6 +48,8 @@ RMDComm::CommStatus_t RMDComm::sendPosition(const float& joint_position_cmd)
 RMDComm::CommStatus_t RMDComm::sendTorque(const float& joint_torque_cmd)
 {
   int32_t iq_command = conv_joint_torque_to_iq_(joint_torque_cmd);
+  RCLCPP_DEBUG(node_->get_logger(), "RMDComm: Send torque command %f Nm (raw iq current: %d)", joint_torque_cmd,
+               iq_command);
   int8_t dummy_temperature;
   int16_t dummy_iq;
   int16_t dummy_speed;
@@ -54,23 +57,25 @@ RMDComm::CommStatus_t RMDComm::sendTorque(const float& joint_torque_cmd)
   return torqueCurrentControlCommand_(iq_command, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
 }
 
+// TODO remove bellow function
 RMDComm::CommStatus_t RMDComm::startHardwareControlLoop()
 {
+  return RMDComm::COMM_STATUS_OK;
 }
+// TODO remove bellow function
 RMDComm::CommStatus_t RMDComm::stopHardwareControlLoop()
 {
+  return RMDComm::COMM_STATUS_OK;
 }
 
 RMDComm::CommStatus_t RMDComm::stop()
 {
-  motorOffCommand_();
-  return RMDComm::COMM_STATUS_OK;
+  return motorOffCommand_();
 }
 
 RMDComm::CommStatus_t RMDComm::start()
 {
-  motorRunningCommand_();
-  return RMDComm::COMM_STATUS_OK;
+  return motorRunningCommand_();
 }
 
 RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float& ia, float& ib, float& ic, float& iq,
@@ -87,16 +92,36 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
   // Read motor multi turn angle
   int64_t dummy_angle = 0;
   ret = readMultiTurnsAngleCommand_(dummy_angle);
+  if (ret != RMDComm::COMM_STATUS_OK)
+  {
+    RCLCPP_DEBUG(node_->get_logger(), "readMultiTurnsAngleCommand_ failed !");
+    return ret;
+  }
   raw_current_position = static_cast<int32_t>(dummy_angle);
 
   // Read motor error status, voltage and temperature
   ret = readMotorStatus1_(raw_temperature, raw_voltage, raw_errorstate);
+  if (ret != RMDComm::COMM_STATUS_OK)
+  {
+    RCLCPP_DEBUG(node_->get_logger(), "readMotorStatus1_ failed !");
+    return ret;
+  }
 
   // Read motor temperature, iq, speed and encoder
   ret = readMotorStatus2_(raw_temperature, raw_iq, raw_speed, raw_encoder);
+  if (ret != RMDComm::COMM_STATUS_OK)
+  {
+    RCLCPP_DEBUG(node_->get_logger(), "readMotorStatus2_ failed !");
+    return ret;
+  }
 
   // Read 3 phases current
   ret = readMotorStatus3_(raw_ia, raw_ib, raw_ic);
+  if (ret != RMDComm::COMM_STATUS_OK)
+  {
+    RCLCPP_DEBUG(node_->get_logger(), "readMotorStatus3_ failed !");
+    return ret;
+  }
 
   temperature = raw_temperature;
   torque = conv_iq_to_joint_torque_(raw_iq);
@@ -109,10 +134,12 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
   voltage = conv_voltage_to_volt_(raw_voltage);
   error = raw_errorstate;
 
+  // TODO actuator error handling
   // if (raw_errorstate != 0)
   // {
   //   return 1;
   // }
+
   return RMDComm::COMM_STATUS_OK;
 }
 
@@ -131,34 +158,34 @@ double RMDComm::conv_motor_pos_to_joint_deg_(const int32_t& motor_pos) const
 
 int16_t RMDComm::conv_joint_torque_to_iq_(const float& torque) const
 {
-  return (conv_ampere_to_iq_(torque / (TORQUE_CONSTANT * reduction_ratio_)));
+  return (conv_ampere_to_iq_(torque / (TORQUE_CONSTANT)));
 }
-float RMDComm::conv_iq_to_joint_torque_(const int16_t iq) const
+float RMDComm::conv_iq_to_joint_torque_(const int16_t& iq) const
 {
   return conv_iq_to_ampere_(iq) * TORQUE_CONSTANT;
 }
 
-float RMDComm::conv_iq_to_ampere_(const int16_t iq) const
+float RMDComm::conv_iq_to_ampere_(const int16_t& iq) const
 {
-  return static_cast<float>((iq * 33.) / 2048.);
+  return static_cast<float>((static_cast<float>(iq) * 33.) / 2048.);
 }
 
-int16_t RMDComm::conv_ampere_to_iq_(const float ampere) const
+int16_t RMDComm::conv_ampere_to_iq_(const float& ampere) const
 {
   return static_cast<int16_t>((ampere * 2000.) / 32.);
 }
 
-float RMDComm::conv_iabc_to_ampere_(const int16_t iabc) const
+float RMDComm::conv_iabc_to_ampere_(const int16_t& iabc) const
 {
   return (static_cast<float>(iabc) / 64.);
 }
 
-float RMDComm::conv_motor_speed_to_joint_dps_(const int16_t motor_speed) const
+float RMDComm::conv_motor_speed_to_joint_dps_(const int16_t& motor_speed) const
 {
   return (static_cast<float>(motor_speed) / reduction_ratio_);
 }
 
-float RMDComm::conv_voltage_to_volt_(const uint16_t voltage) const
+float RMDComm::conv_voltage_to_volt_(const uint16_t& voltage) const
 {
   return (static_cast<float>(voltage) / 10.);
 }
@@ -167,12 +194,17 @@ int16_t RMDComm::saturate_current_limit_(const int16_t& iq) const
 {
   if (iq > conv_ampere_to_iq_(current_limit_))
   {
+    RCLCPP_WARN(node_->get_logger(), "RMDComm: Current limited to %f A (raw iq current: %d)", current_limit_,
+                conv_ampere_to_iq_(current_limit_));
+
     return conv_ampere_to_iq_(current_limit_);
   }
   else
   {
     if (iq < conv_ampere_to_iq_(-current_limit_))
     {
+      RCLCPP_WARN(node_->get_logger(), "RMDComm: Current limited to %f A (raw iq current: %d)", current_limit_,
+                  conv_ampere_to_iq_(current_limit_));
       return conv_ampere_to_iq_(-current_limit_);
     }
   }
@@ -395,7 +427,7 @@ RMDComm::CommStatus_t RMDComm::writeZeroPositionToRom_()
 
   CommStatus_t ret = send_receive_(sendframe, receiveframe);
 
-  printf("Current position set as Zero position and written in ROM\n");
+  RCLCPP_DEBUG(node_->get_logger(), "RMDComm: Current position set as Zero position and written in ROM");
 
   return ret;
 }
@@ -533,7 +565,8 @@ RMDComm::CommStatus_t RMDComm::writeAccelData2Ram_(const int32_t& accel)
 
   CommStatus_t ret = send_receive_(sendframe, receiveframe);
 
-  printf("Max acceleration set in the actuator RAM.\n");
+  RCLCPP_DEBUG(node_->get_logger(), "RMDComm: Max acceleration set in the actuator RAM.");
+
   return ret;
 }
 

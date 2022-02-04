@@ -27,7 +27,8 @@ public:
     READ_ERROR,
     WRITE_ERROR
   } status_t;
-  ActuatorHardwareInterface(rclcpp_lifecycle::LifecycleNode* node, std::shared_ptr<BaseComm> comm);
+  ActuatorHardwareInterface(rclcpp_lifecycle::LifecycleNode* node, std::shared_ptr<BaseComm> comm,
+                            const float& current_limit_param_);
   ~ActuatorHardwareInterface();
   void getState(actuator_msgs::msg::ActuatorState& actuator_state);
   void setPositionCommand(const float& position_command);
@@ -47,11 +48,12 @@ public:
   void send_torque_cmd();
   //   status_t getStatus();
 private:
-  std::shared_ptr<BaseComm> comm_;
   rclcpp_lifecycle::LifecycleNode* node_;
+  std::shared_ptr<BaseComm> comm_;
 
-  float position_command_;
+  float current_limit_;
   float torque_command_;
+  float position_command_;
   float temperature_;
   float torque_;
   float ia_;

@@ -1,0 +1,9 @@
+# goal
+ControlMode mode
+float32 cmd_value
+---
+# result
+bool success
+---
+# feedback
+ActuatorState state

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(actuator_msgs)
+project(actuator_rpi)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -7,15 +7,10 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-
-rosidl_generate_interfaces(${PROJECT_NAME}
-"msg/ActuatorState.msg"
-"msg/ControlMode.msg"
-"msg/RpiInterface.msg"
-"srv/SetControlMode.srv"
-"action/ActuatorMove.action"
-)
+find_package(rclcpp REQUIRED)
+find_package(actuator_msgs REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -32,6 +27,24 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_export_dependencies(rosidl_default_runtime)
+
+include_directories(include)
+
+set(actuator_rpi_SRC
+  src/actuator_rpi.cpp
+  src/rpi_diagnostics.cpp
+)
+
+add_executable(${PROJECT_NAME} ${actuator_rpi_SRC})
+ament_target_dependencies(${PROJECT_NAME} rclcpp actuator_msgs rclcpp_lifecycle lifecycle_msgs)
+
+target_link_libraries(${PROJECT_NAME}
+  -lwiringPi
+  -lrt
+)
+
+install(TARGETS
+  ${PROJECT_NAME}
+  DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

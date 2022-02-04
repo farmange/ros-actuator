@@ -58,7 +58,7 @@ def generate_launch_description():
     ns_launch_arg = DeclareLaunchArgument(
         'ns',
         default_value='',
-        description='Prefix for node names'
+        description='Namespace of the nodes'
         )
 
     config_file_path = os.path.join(
@@ -66,7 +66,6 @@ def generate_launch_description():
         'config',
         'rmd_config.yaml'
         )
-    print("config_file_path :" + config_file_path)
 
     actuator_driver_node = LifecycleNode(
         package='actuator_driver',
