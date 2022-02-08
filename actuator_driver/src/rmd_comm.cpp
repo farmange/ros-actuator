@@ -11,7 +11,8 @@
 
 #include "actuator_driver/rmd_comm.h"
 
-const uint8_t RMDComm::ANGLE_TO_DEG = 100;
+const uint8_t RMDComm::ANGLE_TO_0_01DEG = 100;
+const uint8_t RMDComm::SPEED_TO_0_01DPS = 100;
 const float RMDComm::TORQUE_CONSTANT = 6.92;  // Nm/A (given in datasheet for gearbox output side)
 
 RMDComm::RMDComm(rclcpp_lifecycle::LifecycleNode* node) : BaseComm(node)
@@ -57,15 +58,16 @@ RMDComm::CommStatus_t RMDComm::sendTorque(const float& joint_torque_cmd)
   return torqueCurrentControlCommand_(iq_command, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
 }
 
-// TODO remove bellow function
-RMDComm::CommStatus_t RMDComm::startHardwareControlLoop()
+RMDComm::CommStatus_t RMDComm::sendSpeed(const float& joint_speed_cmd)
 {
-  return RMDComm::COMM_STATUS_OK;
-}
-// TODO remove bellow function
-RMDComm::CommStatus_t RMDComm::stopHardwareControlLoop()
-{
-  return RMDComm::COMM_STATUS_OK;
+  int32_t speed_command = conv_joint_speed_to_motor_speed_(joint_speed_cmd);
+  RCLCPP_DEBUG(node_->get_logger(), "RMDComm: Send speed command %f dps (raw motor speed: %d)", joint_speed_cmd,
+               speed_command);
+  int8_t dummy_temperature;
+  int16_t dummy_iq;
+  int16_t dummy_speed;
+  uint16_t dummy_encoder;
+  return speedControlCommand_(speed_command, dummy_temperature, dummy_iq, dummy_speed, dummy_encoder);
 }
 
 RMDComm::CommStatus_t RMDComm::stop()
@@ -147,13 +149,19 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
 // Return the motor position in deg from the joint position
 int32_t RMDComm::conv_joint_deg_to_motor_pos_(const double& joint_deg) const
 {
-  return static_cast<int32_t>(joint_deg * reduction_ratio_ * ANGLE_TO_DEG);
+  return static_cast<int32_t>(joint_deg * reduction_ratio_ * ANGLE_TO_0_01DEG);
 }
 
 // Return the joint position in deg from the motor position
 double RMDComm::conv_motor_pos_to_joint_deg_(const int32_t& motor_pos) const
 {
-  return ((static_cast<double>(motor_pos)) / (reduction_ratio_ * ANGLE_TO_DEG));
+  return ((static_cast<double>(motor_pos)) / (reduction_ratio_ * ANGLE_TO_0_01DEG));
+}
+
+// Return the motor speed in 0.01dps from the joint position in deg
+int32_t RMDComm::conv_joint_speed_to_motor_speed_(const double& joint_dps) const
+{
+  return static_cast<int32_t>(joint_dps * reduction_ratio_ * SPEED_TO_0_01DPS);
 }
 
 int16_t RMDComm::conv_joint_torque_to_iq_(const float& torque) const
@@ -318,7 +326,7 @@ RMDComm::CommStatus_t RMDComm::readMotorStatus3_(int16_t& ia, int16_t& ib, int16
 }
 
 RMDComm::CommStatus_t RMDComm::speedControlCommand_(const int32_t& speedcontrol, int8_t& temperature, int16_t& iq,
-                                                    int16_t& speed, int16_t& encoder)
+                                                    int16_t& speed, uint16_t& encoder)
 {
   CanDriver::SendFrame_t sendframe;
   CanDriver::ReceiveFrame_t receiveframe;

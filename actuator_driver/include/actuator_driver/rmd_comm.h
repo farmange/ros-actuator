@@ -10,7 +10,8 @@
 
 class RMDComm : public BaseComm
 {
-  static const uint8_t ANGLE_TO_DEG;
+  static const uint8_t ANGLE_TO_0_01DEG;
+  static const uint8_t SPEED_TO_0_01DPS;
   static const float TORQUE_CONSTANT;
 
 public:
@@ -22,9 +23,8 @@ public:
   // Initialise socket and CAN device
   CommStatus_t sendPosition(const float& joint_position_cmd);
   CommStatus_t sendTorque(const float& joint_torque_cmd);
+  CommStatus_t sendSpeed(const float& joint_speed_cmd);
 
-  CommStatus_t startHardwareControlLoop();
-  CommStatus_t stopHardwareControlLoop();
   CommStatus_t stop();
   CommStatus_t start();
 
@@ -32,11 +32,11 @@ public:
                         float& speed, float& voltage, uint16_t& error);
 
 private:
-  // Return the motor position in deg from the joint position
   int32_t conv_joint_deg_to_motor_pos_(const double& joint_deg) const;
-
-  // Return the joint position in deg from the motor position
   double conv_motor_pos_to_joint_deg_(const int32_t& motor_pos) const;
+
+  int32_t conv_joint_speed_to_motor_speed_(const double& joint_deg) const;
+
   int16_t conv_joint_torque_to_iq_(const float& torque) const;
   float conv_iq_to_joint_torque_(const int16_t& iq) const;
 
@@ -85,7 +85,7 @@ private:
                                         uint16_t& encoder);
 
   CommStatus_t speedControlCommand_(const int32_t& speedcontrol, int8_t& temperature, int16_t& iq, int16_t& speed,
-                                    int16_t& encoder);
+                                    uint16_t& encoder);
   // The host sends this command to control the speed of the motor.
   // Speed Control is int32_t, which corresponds to the actual speed of 0.01dps/LSB.
 

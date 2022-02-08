@@ -4,5 +4,7 @@ bool switch_limit
 bool user_button_up
 # User button down
 bool user_button_down
+# User button down
+bool user_button_mode
 # Raspberry pi temperature
 float32 rpi_temperature

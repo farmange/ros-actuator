@@ -11,8 +11,10 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
 "msg/ActuatorState.msg"
+"msg/ControlCommand.msg"
 "msg/ControlMode.msg"
 "msg/RpiInterface.msg"
+"srv/ButtonModeEvent.srv"
 "srv/SetControlMode.srv"
 "action/ActuatorMove.action"
 )

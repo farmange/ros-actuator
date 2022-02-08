@@ -22,7 +22,10 @@ ActuatorDriver::ActuatorDriver(const std::string& node_name, bool intra_process_
   this->declare_parameter<int>("actuator_max_accel", 700);
   this->declare_parameter<float>("actuator_current_limit", 0.0);
 
-  control_mode_.id = ControlModeMsg::ID_MODE_OFF;
+  control_command_.mode.id = ControlModeMsg::ID_MODE_OFF;
+  control_command_.position = 0.0;
+  control_command_.velocity = 0.0;
+  control_command_.torque = 0.0;
 }
 
 ActuatorDriver::~ActuatorDriver()
@@ -147,15 +150,13 @@ void ActuatorDriver::init_services_()
 
 void ActuatorDriver::init_publishers_()
 {
-  actuator_state_pub_ = this->create_publisher<actuator_msgs::msg::ActuatorState>("actuator_state", 1);
+  actuator_state_pub_ = this->create_publisher<ActuatorStateMsg>("actuator_state", 1);
 }
 
 void ActuatorDriver::init_subscribers_()
 {
-  position_command_sub_ = this->create_subscription<std_msgs::msg::Float32>(
-      "position_command", 1, std::bind(&ActuatorDriver::position_command_cb_, this, _1));
-  torque_command_sub_ = this->create_subscription<std_msgs::msg::Float32>(
-      "torque_command", 1, std::bind(&ActuatorDriver::torque_command_cb_, this, _1));
+  control_command_sub_ = this->create_subscription<ControlCommandMsg>(
+      "control_command", 1, std::bind(&ActuatorDriver::control_command_cb_, this, _1));
 }
 
 void ActuatorDriver::clear_services_()
@@ -170,8 +171,7 @@ void ActuatorDriver::clear_publishers_()
 
 void ActuatorDriver::clear_subscribers_()
 {
-  position_command_sub_.reset();
-  torque_command_sub_.reset();
+  control_command_sub_.reset();
 }
 
 void ActuatorDriver::control_loop_cb_()
@@ -179,62 +179,64 @@ void ActuatorDriver::control_loop_cb_()
   // RCLCPP_INFO(get_logger(), "ActuatorDriver::control_loop_cb_");
   actuator_->read();
 
-  if (control_mode_.id == ControlModeMsg::ID_MODE_OFF)
+  if (control_command_.mode.id == ControlModeMsg::ID_MODE_OFF)
   {
     actuator_->stop();
   }
-  else if (control_mode_.id == ControlModeMsg::ID_MODE_TORQUE)
+  else if (control_command_.mode.id == ControlModeMsg::ID_MODE_TORQUE)
   {
-    actuator_->setTorqueCommand(torque_command_);
+    actuator_->set_torque_command(control_command_.torque);
     actuator_->send_torque_cmd();
   }
-  else if (control_mode_.id == ControlModeMsg::ID_MODE_POSITION)
+  else if (control_command_.mode.id == ControlModeMsg::ID_MODE_POSITION)
   {
-    actuator_->setPositionCommand(position_command_);
+    actuator_->set_position_command(control_command_.position);
     actuator_->send_position_cmd();
+  }
+  else if (control_command_.mode.id == ControlModeMsg::ID_MODE_SPEED)
+  {
+    actuator_->set_speed_command(control_command_.velocity);
+    actuator_->send_speed_cmd();
   }
 
   actuator_->getState(actuator_state_);
 
   // Fill message with control mode for user feedback
-  actuator_state_.mode = control_mode_;
+  actuator_state_.mode = control_command_.mode;
 
   actuator_state_pub_->publish(actuator_state_);
   // RCLCPP_INFO(get_logger(), "ActuatorDriver::control_loop_cb_ end...");
 }
 
-void ActuatorDriver::position_command_cb_(const std_msgs::msg::Float32::SharedPtr msg)
+void ActuatorDriver::control_command_cb_(const ControlCommandMsg::SharedPtr msg)
 {
-  RCLCPP_DEBUG(this->get_logger(), "Position command set to: '%f'", msg->data);
-  position_command_ = msg->data;
+  RCLCPP_DEBUG(this->get_logger(),
+               "Control command message received (mode.id: %d | position: %f | velocity: %f | torque: %f)",
+               msg->mode.id, msg->position, msg->velocity, msg->torque);
+  control_command_ = *msg;
 }
 
-void ActuatorDriver::torque_command_cb_(const std_msgs::msg::Float32::SharedPtr msg)
-{
-  RCLCPP_DEBUG(this->get_logger(), "Torque command set to: '%f'", msg->data);
-  torque_command_ = msg->data;
-}
-
+// TODO remove this service as we have a dedicated top now
 void ActuatorDriver::set_control_mode_srv_cb_(
     const std::shared_ptr<actuator_msgs::srv::SetControlMode::Request> request,
     std::shared_ptr<actuator_msgs::srv::SetControlMode::Response> response)
 {
-  RCLCPP_DEBUG(this->get_logger(), "Set control mode request received : %d", request->mode.id);
-  if ((request->mode.id == ControlModeMsg::ID_MODE_OFF) || (request->mode.id == ControlModeMsg::ID_MODE_TORQUE) ||
-      (request->mode.id == ControlModeMsg::ID_MODE_POSITION))
-  {
-    control_mode_.id = request->mode.id;
-    response->success = true;
-  }
-  else
-  {
-    response->success = false;
-  }
+  // RCLCPP_DEBUG(this->get_logger(), "Set control mode request received : %d", request->mode.id);
+  // if ((request->mode.id == ControlModeMsg::ID_MODE_OFF) || (request->mode.id == ControlModeMsg::ID_MODE_TORQUE) ||
+  //     (request->mode.id == ControlModeMsg::ID_MODE_POSITION))
+  // {
+  //   control_mode_.id = request->mode.id;
+  //   response->success = true;
+  // }
+  // else
+  // {
+  //   response->success = false;
+  // }
 }
 
 void ActuatorDriver::actuator_stop_()
 {
-  control_mode_.id = ControlModeMsg::ID_MODE_OFF;
+  control_command_.mode.id = ControlModeMsg::ID_MODE_OFF;
   actuator_->stop();
 }
 

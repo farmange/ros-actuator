@@ -29,14 +29,19 @@ void ActuatorHardwareInterface::getState(actuator_msgs::msg::ActuatorState& actu
   return;
 }
 
-void ActuatorHardwareInterface::setPositionCommand(const float& position_command)
+void ActuatorHardwareInterface::set_position_command(const float& position_command)
 {
   position_command_ = position_command;
 }
 
-void ActuatorHardwareInterface::setTorqueCommand(const float& torque_command)
+void ActuatorHardwareInterface::set_torque_command(const float& torque_command)
 {
   torque_command_ = torque_command;
+}
+
+void ActuatorHardwareInterface::set_speed_command(const float& speed_command)
+{
+  speed_command_ = speed_command;
 }
 
 void ActuatorHardwareInterface::stop()
@@ -86,6 +91,19 @@ void ActuatorHardwareInterface::send_position_cmd()
 void ActuatorHardwareInterface::send_torque_cmd()
 {
   if (comm_->sendTorque(torque_command_) == BaseComm::COMM_STATUS_OK)
+  {
+    // RCLCPP_DEBUG(node_->get_logger(), "Write actuator torque command: %f", torque_command_);
+  }
+  else
+  {
+    RCLCPP_WARN(node_->get_logger(), "Cannot write actuator torque command %f !", torque_command_);
+    return;
+  }
+}
+
+void ActuatorHardwareInterface::send_speed_cmd()
+{
+  if (comm_->sendSpeed(speed_command_) == BaseComm::COMM_STATUS_OK)
   {
     // RCLCPP_DEBUG(node_->get_logger(), "Write actuator torque command: %f", torque_command_);
   }

@@ -11,8 +11,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "std_msgs/msg/float32.hpp"
 #include "actuator_msgs/msg/actuator_state.hpp"
+#include "actuator_msgs/msg/control_command.hpp"
 #include "actuator_msgs/msg/control_mode.hpp"
 #include "actuator_msgs/srv/set_control_mode.hpp"
 
@@ -26,7 +26,9 @@
 
 class ActuatorDriver : public rclcpp_lifecycle::LifecycleNode
 {
+  using ControlCommandMsg = actuator_msgs::msg::ControlCommand;
   using ControlModeMsg = actuator_msgs::msg::ControlMode;
+  using ActuatorStateMsg = actuator_msgs::msg::ActuatorState;
   using SetControlModeSrv = actuator_msgs::srv::SetControlMode;
 
 public:
@@ -36,8 +38,7 @@ public:
 private:
   void control_loop_cb_();
 
-  void position_command_cb_(const std_msgs::msg::Float32::SharedPtr msg);
-  void torque_command_cb_(const std_msgs::msg::Float32::SharedPtr msg);
+  void control_command_cb_(const ControlCommandMsg::SharedPtr msg);
   void set_control_mode_srv_cb_(const std::shared_ptr<SetControlModeSrv::Request> request,
                                 std::shared_ptr<SetControlModeSrv::Response> response);
   void init_parameters_();
@@ -67,22 +68,17 @@ private:
   std::shared_ptr<BaseComm> comm_;
   std::shared_ptr<ActuatorHardwareInterface> actuator_;
 
-  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr position_command_sub_;
-  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr torque_command_sub_;
+  rclcpp::Subscription<ControlCommandMsg>::SharedPtr control_command_sub_;
 
-  // rclcpp::Publisher<actuator_msgs::msg::ActuatorState>::SharedPtr actuator_state_pub_;
-  // std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<actuator_msgs::msg::ActuatorState>> actuator_state_pub_;
-  rclcpp_lifecycle::LifecyclePublisher<actuator_msgs::msg::ActuatorState>::SharedPtr actuator_state_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<ActuatorStateMsg>::SharedPtr actuator_state_pub_;
 
   rclcpp::Service<SetControlModeSrv>::SharedPtr set_control_mode_srv_;
   rclcpp::TimerBase::SharedPtr timer_;
   // std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>> lc_pub_;
 
-  actuator_msgs::msg::ActuatorState actuator_state_;
+  ActuatorStateMsg actuator_state_;
 
-  float position_command_;
-  float torque_command_;
-  ControlModeMsg control_mode_;
+  ControlCommandMsg control_command_;
 
   std::string can_device_param_;
   int reduction_ratio_param_;

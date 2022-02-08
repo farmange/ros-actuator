@@ -23,12 +23,7 @@ RpiDiagnostics::RpiDiagnostics(rclcpp_lifecycle::LifecycleNode* node) : node_(no
   }
 
   RCLCPP_INFO(node_->get_logger(), "Initialize timer for rpi diag");
-  // rclcpp::Duration update_time = rclcpp::Duration::from_nanoseconds(1e9 / loop_rate_);
-  // std::chrono::nanoseconds update_time(static_cast<int>(1e9 / loop_rate_));
-  // std::chrono::seconds period(1.0 / loop_rate_);
   std::chrono::duration<double> period(1.0 / loop_rate_);
-
-  // std::chrono::milliseconds period(static_cast<int>(1e6 / loop_rate_));
   diag_non_rt_loop_ = node_->create_wall_timer(std::chrono::duration_cast<std::chrono::nanoseconds>(period),
                                                std::bind(&RpiDiagnostics::update_, this));
 

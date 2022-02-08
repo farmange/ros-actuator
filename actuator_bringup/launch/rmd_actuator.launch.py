@@ -77,40 +77,25 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', "actuator_driver:=debug"],
     )
 
-    # ros2 lifecycle set /rmd_actuator/actuator_driver configure
-    configure_actuator_driver = ExecuteProcess(
-        cmd=[[
-            FindExecutable(name='ros2'),
-            ' lifecycle set ',
-            ns,
-            '/actuator_driver ',
-            'configure'
-        ]],
-        shell=True
+    actuator_rpi_node = LifecycleNode(
+        package='actuator_rpi',
+        namespace=ns,
+        executable='actuator_rpi',
+        name='actuator_rpi',
+        parameters=[config_file_path],
+        prefix=['stdbuf -o L'],
+        arguments=['--ros-args', '--log-level', "actuator_rpi:=debug"],
     )
 
-    activate_actuator_driver = ExecuteProcess(
-        cmd=[[
-            FindExecutable(name='ros2'),
-            ' lifecycle set ',
-            ns,
-            '/actuator_driver ',
-            'activate'
-        ]],
-        shell=True
+    supporter_controller_node = LifecycleNode(
+        package='supporter_controller',
+        namespace=ns,
+        executable='supporter_controller',
+        name='supporter_controller',
+        parameters=[config_file_path],
+        prefix=['stdbuf -o L'],
+        arguments=['--ros-args', '--log-level', "supporter_controller:=debug"],
     )
-
-    shutdown_actuator_driver = ExecuteProcess(
-        cmd=[[
-            FindExecutable(name='ros2'),
-            ' lifecycle set ',
-            ns,
-            '/actuator_driver ',
-            'shutdown'
-        ]],
-        shell=True
-    )
-
 
     # When the node reaches the 'inactive' state, make it take the 'activate' transition.
     event_actuator_driver_reaches_inactive_state = RegisterEventHandler(
@@ -127,14 +112,76 @@ def generate_launch_description():
         )
     )
 
+    # When the node reaches the 'inactive' state, make it take the 'activate' transition.
+    event_actuator_rpi_reaches_inactive_state = RegisterEventHandler(
+        OnStateTransition(
+            target_lifecycle_node=actuator_rpi_node, goal_state='inactive',
+            entities=[
+                LogInfo(
+                    msg="> actuator_rpi_node reached the 'inactive' state, 'activating'."),
+                EmitEvent(event=ChangeState(
+                    lifecycle_node_matcher=matches_action(actuator_rpi_node),
+                    transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE,
+                )),
+            ],
+        )
+    )
+
+    # When the node reaches the 'inactive' state, make it take the 'activate' transition.
+    event_supporter_controller_reaches_inactive_state = RegisterEventHandler(
+        OnStateTransition(
+            target_lifecycle_node=supporter_controller_node, goal_state='inactive',
+            entities=[
+                LogInfo(
+                    msg="> supporter_controller_node reached the 'inactive' state, 'activating'."),
+                EmitEvent(event=ChangeState(
+                    lifecycle_node_matcher=matches_action(supporter_controller_node),
+                    transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE,
+                )),
+            ],
+        )
+    )
+
+    # Make the talker node take the 'configure' transition.
+    emit_event_to_request_actuator_driver_does_configure_transition = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(actuator_driver_node),
+            transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
+        )
+    )
+
+    # Make the talker node take the 'configure' transition.
+    emit_event_to_request_actuator_rpi_does_configure_transition = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(actuator_rpi_node),
+            transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
+        )
+    )
+
+    # Make the talker node take the 'configure' transition.
+    emit_event_to_request_supporter_controller_does_configure_transition = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(supporter_controller_node),
+            transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
+        )
+    )
+
     ### Start building the launch description ###
     ld = LaunchDescription()
 
     ld.add_action(ns_launch_arg)
     ld.add_action(actuator_driver_node)
+    ld.add_action(actuator_rpi_node)
+    ld.add_action(supporter_controller_node)
 
     ld.add_action(event_actuator_driver_reaches_inactive_state)
-    ld.add_action(configure_actuator_driver)
+    ld.add_action(event_actuator_rpi_reaches_inactive_state)
+    ld.add_action(event_supporter_controller_reaches_inactive_state)
+   
+    ld.add_action(emit_event_to_request_actuator_driver_does_configure_transition)
+    ld.add_action(emit_event_to_request_actuator_rpi_does_configure_transition)
+    ld.add_action(emit_event_to_request_supporter_controller_does_configure_transition)
+
 
     print('Starting introspection of launch description...')
     print('-----------------------------------------------')

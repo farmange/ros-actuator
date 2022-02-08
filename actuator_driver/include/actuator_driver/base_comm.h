@@ -32,9 +32,8 @@ public:
   /* Send position in degree */
   virtual CommStatus_t sendPosition(const float& joint_position_cmd) = 0;
   virtual CommStatus_t sendTorque(const float& joint_torque_cmd) = 0;
+  virtual CommStatus_t sendSpeed(const float& joint_speed_cmd) = 0;
 
-  virtual CommStatus_t startHardwareControlLoop() = 0;
-  virtual CommStatus_t stopHardwareControlLoop() = 0;
   virtual CommStatus_t stop() = 0;
   virtual CommStatus_t start() = 0;
 

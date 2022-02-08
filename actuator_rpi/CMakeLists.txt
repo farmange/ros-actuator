@@ -31,8 +31,10 @@ endif()
 include_directories(include)
 
 set(actuator_rpi_SRC
-  src/actuator_rpi.cpp
   src/rpi_diagnostics.cpp
+  src/rpi_switch_limit.cpp
+  src/rpi_user_button.cpp
+  src/actuator_rpi.cpp
 )
 
 add_executable(${PROJECT_NAME} ${actuator_rpi_SRC})

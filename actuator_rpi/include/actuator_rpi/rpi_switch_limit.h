@@ -1,5 +1,5 @@
 //============================================================================
-// Name        : armms_switch_limit.h
+// Name        : rpi_switch_limit.h
 // Author      : Florian Armange, ORTHOPUS
 // Version     : 0.0
 // Copyright   : LGPLv3
@@ -7,28 +7,25 @@
 //               of the libkinovadrv
 //============================================================================
 
-#ifndef ARMMS_RPI_SWITCH_LIMIT_H
-#define ARMMS_RPI_SWITCH_LIMIT_H
+#ifndef ACTUATOR_RPI_RPI_SWITCH_LIMIT_H
+#define ACTUATOR_RPI_RPI_SWITCH_LIMIT_H
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include <wiringPi.h>
 
-#include "std_msgs/Bool.h"
-namespace armms_rpi
-{
-class ArmmsSwitchLimit
+class RpiSwitchLimit
 {
 public:
-  ArmmsSwitchLimit(const ros::NodeHandle& nh);
+  RpiSwitchLimit(rclcpp_lifecycle::LifecycleNode* node);
   void update(bool& switch_limit);
 
 private:
-  ros::NodeHandle nh_;
+  rclcpp_lifecycle::LifecycleNode* node_;
 
   int switch_limit_pin_;
 
-  void retrieveParameters_();
+  void init_parameters_();
 };
 
-}  // namespace armms_rpi
 #endif

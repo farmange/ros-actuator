@@ -31,8 +31,9 @@ public:
                             const float& current_limit_param_);
   ~ActuatorHardwareInterface();
   void getState(actuator_msgs::msg::ActuatorState& actuator_state);
-  void setPositionCommand(const float& position_command);
-  void setTorqueCommand(const float& torque_command);
+  void set_position_command(const float& position_command);
+  void set_torque_command(const float& torque_command);
+  void set_speed_command(const float& speed_command);
 
   void stop();
   void start();
@@ -46,14 +47,16 @@ public:
   //   void resetLimit();
   void send_position_cmd();
   void send_torque_cmd();
+  void send_speed_cmd();
   //   status_t getStatus();
 private:
   rclcpp_lifecycle::LifecycleNode* node_;
   std::shared_ptr<BaseComm> comm_;
 
   float current_limit_;
-  float torque_command_;
   float position_command_;
+  float torque_command_;
+  float speed_command_;
   float temperature_;
   float torque_;
   float ia_;

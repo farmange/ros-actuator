@@ -1,5 +1,5 @@
 //============================================================================
-// Name        : armms_user_button.h
+// Name        : rpi_user_button.h
 // Author      : Florian Armange, ORTHOPUS
 // Version     : 0.0
 // Copyright   : LGPLv3
@@ -7,28 +7,46 @@
 //               of the libkinovadrv
 //============================================================================
 
-#ifndef ARMMS_RPI_USER_BUTTON_H
-#define ARMMS_RPI_USER_BUTTON_H
+#ifndef ACTUATOR_RPI_RPI_USER_BUTTON_H
+#define ACTUATOR_RPI_RPI_USER_BUTTON_H
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "actuator_msgs/srv/button_mode_event.hpp"
 #include <wiringPi.h>
 
-namespace armms_rpi
+class RpiUserButton
 {
-class ArmmsUserButton
-{
+  using ButtonModeEventSrv = actuator_msgs::srv::ButtonModeEvent;
+
 public:
-  ArmmsUserButton(const ros::NodeHandle& nh);
-  void update(bool& button_up, bool& button_down);
+  RpiUserButton(rclcpp_lifecycle::LifecycleNode* node);
+  void update(bool& button_up, bool& button_down, bool& button_mode);
 
 private:
-  ros::NodeHandle nh_;
+  rclcpp_lifecycle::LifecycleNode* node_;
 
   int btn_up_pin_;
   int btn_down_pin_;
+  int btn_mode_pin_;
 
-  void retrieveParameters_();
+  void init_parameters_();
+  void init_services_();
+  
+  void process_button_mode_state_(const bool& button_mode);
+
+  ///////////////////////////////////
+  rclcpp::Client<ButtonModeEventSrv>::SharedPtr button_mode_srv_client_;
+
+  bool button_mode_prev_;
+  bool long_press_detected_;
+
+  double long_press_duration_;
+  double inactivity_duration_;
+  rclcpp::Time press_time_;
+  rclcpp::Time release_time_;
+  int press_counter_;
+  ///////////////////
 };
 
-}  // namespace armms_rpi
 #endif

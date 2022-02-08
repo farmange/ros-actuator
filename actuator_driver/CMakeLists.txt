@@ -35,7 +35,6 @@ set(actuator_driver_SRC
   src/can_driver.cpp
   src/rmd_comm.cpp
   src/nodes/actuator_driver_node.cpp
-  # src/test_bench_node.cpp
   src/actuator_hardware_interface.cpp
 )
 

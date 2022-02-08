@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(actuator_test_manager)
+project(supporter_controller)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -8,7 +8,6 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
 find_package(actuator_msgs REQUIRED)
 find_package(actuator_driver REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
@@ -31,17 +30,13 @@ endif()
 
 include_directories(include)
 
-set(actuator_test_manager_SRC
-  src/nodes/actuator_test_manager_node.cpp
+set(supporter_controller_SRC
+  src/nodes/supporter_controller_node.cpp
+  src/supporter_controller.cpp
 )
 
-add_executable(${PROJECT_NAME} ${actuator_test_manager_SRC})
-ament_target_dependencies(${PROJECT_NAME} rclcpp std_msgs actuator_msgs actuator_driver rclcpp_lifecycle lifecycle_msgs)
-
-# target_include_directories(${PROJECT_NAME} 
-#   PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>)
+add_executable(${PROJECT_NAME} ${supporter_controller_SRC})
+ament_target_dependencies(${PROJECT_NAME} rclcpp actuator_msgs rclcpp_lifecycle lifecycle_msgs)
 
 install(TARGETS
   ${PROJECT_NAME}

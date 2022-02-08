@@ -17,10 +17,10 @@
 // #include <softPwm.h>
 
 #include "actuator_msgs/msg/rpi_interface.hpp"
-// #include "actuator_rpi/rpi_switch_limit.h"
+#include "actuator_rpi/rpi_switch_limit.h"
 // #include "armms_rpi/armms_power_button_led.h"
 #include "actuator_rpi/rpi_diagnostics.h"
-// #include "actuator_rpi/rpi_user_button.h"
+#include "actuator_rpi/rpi_user_button.h"
 // #include "armms_rpi/armms_motor_power.h"
 // #include "armms_rpi/armms_shutdown_manager.h"
 
@@ -31,14 +31,12 @@ public:
 
 private:
   rclcpp_lifecycle::LifecyclePublisher<actuator_msgs::msg::RpiInterface>::SharedPtr rpi_interface_pub_;
-  // boost::shared_ptr<ArmmsPowerButtonLed> power_button_led_;
-  // std::shared_ptr<RpiUserButton> user_button_;
-  // boost::shared_ptr<ArmmsMotorPower> motor_power_;
-  // std::shared_ptr<RpiSwitchLimit> switch_limit_;
-  // boost::shared_ptr<ArmmsShutdownManager> shutdown_manager_;
+  std::shared_ptr<RpiUserButton> user_button_;
+  std::shared_ptr<RpiSwitchLimit> switch_limit_;
   std::shared_ptr<RpiDiagnostics> rpi_diagnostics_;
 
   rclcpp::TimerBase::SharedPtr timer_;
+  int rpi_loop_rate_;
 
   void init_parameters_();
   void init_publishers_();

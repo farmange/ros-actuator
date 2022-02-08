@@ -22,12 +22,9 @@ public:
   float getCpuTemperature();
 
 private:
-  // ros::NodeHandle nh_;
   rclcpp_lifecycle::LifecycleNode* node_;
-  // ros::Timer diag_non_rt_loop_;
   rclcpp::TimerBase::SharedPtr diag_non_rt_loop_;
 
-  // ros::ServiceClient shutdown_srv_;
   float cpu_temperature_;
   int loop_rate_;
   void init_parameters_();

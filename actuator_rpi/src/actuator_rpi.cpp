@@ -5,10 +5,6 @@
 // Copyright   : LGPLv3
 //============================================================================
 
-// #include <ros/callback_queue.h>
-// #include <ros/callback_queue.h>
-// #include <ros/spinner.h>
-
 #include <fstream>
 
 #include "actuator_rpi/actuator_rpi.h"
@@ -29,11 +25,11 @@ ActuatorRpi::on_configure(const rclcpp_lifecycle::State&)
   init_parameters_();
   init_publishers_();
 
-  // if (rpi_loop_rate_ <= 0)
-  // {
-  //   ROS_ERROR("Bad sampling frequency value (%d) for RPI thread", rpi_loop_rate_);
-  //   return;
-  // }
+  if (rpi_loop_rate_ <= 0)
+  {
+    RCLCPP_ERROR(get_logger(), "Wrong sampling frequency value (%d) for RPI thread", rpi_loop_rate_);
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
+  }
 
   if (wiringPiSetup() == -1)
   {
@@ -46,16 +42,16 @@ ActuatorRpi::on_configure(const rclcpp_lifecycle::State&)
 
   // ROS_INFO("Create user button");
   // user_button_.reset(new ArmmsUserButton(nh_));
-  // RCLCPP_INFO(get_logger(), "Create user button");
-  // user_button_ = std::make_shared<RpiUserButton>(this);
+  RCLCPP_INFO(get_logger(), "Create user button");
+  user_button_ = std::make_shared<RpiUserButton>(this);
 
   // ROS_INFO("Create motor power");
   // motor_power_.reset(new ArmmsMotorPower(nh_));
 
   // ROS_INFO("Create switch limit");
   // switch_limit_.reset(new ArmmsSwitchLimit(nh_));
-  // RCLCPP_INFO(get_logger(), "Create switch limit");
-  // switch_limit_ = std::make_shared<RpiSwitchLimit>(this);
+  RCLCPP_INFO(get_logger(), "Create switch limit");
+  switch_limit_ = std::make_shared<RpiSwitchLimit>(this);
 
   // ROS_INFO("Create shutdown manager");
   // shutdown_manager_.reset(new ArmmsShutdownManager(nh_, power_button_led_.get()));
@@ -66,7 +62,9 @@ ActuatorRpi::on_configure(const rclcpp_lifecycle::State&)
   rpi_diagnostics_ = std::make_shared<RpiDiagnostics>(this);
 
   RCLCPP_INFO(get_logger(), "Initialize timer for rpi loop");
-  timer_ = this->create_wall_timer(10ms, std::bind(&ActuatorRpi::update_, this));
+  std::chrono::duration<double> period(1.0 / rpi_loop_rate_);
+  timer_ = this->create_wall_timer(std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+                                   std::bind(&ActuatorRpi::update_, this));
   timer_->cancel();
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -120,6 +118,8 @@ ActuatorRpi::on_shutdown(const rclcpp_lifecycle::State&)
 
 void ActuatorRpi::init_parameters_()
 {
+  this->declare_parameter<int>("rpi_loop_rate", 100);
+  this->get_parameter("rpi_loop_rate", rpi_loop_rate_);
 }
 
 void ActuatorRpi::init_publishers_()
@@ -137,14 +137,16 @@ void ActuatorRpi::update_()
   bool switch_limit;
   bool user_button_up;
   bool user_button_down;
+  bool user_button_mode;
 
-  // user_button_->update(user_button_up, user_button_down);
-  // switch_limit_->update(switch_limit);
+  user_button_->update(user_button_up, user_button_down, user_button_mode);
+  switch_limit_->update(switch_limit);
 
   actuator_msgs::msg::RpiInterface msg;
-  // msg.switch_limit = switch_limit;
-  // msg.user_button_up = user_button_up;
-  // msg.user_button_down = user_button_down;
+  msg.switch_limit = switch_limit;
+  msg.user_button_up = user_button_up;
+  msg.user_button_down = user_button_down;
+  msg.user_button_mode = user_button_mode;
   msg.rpi_temperature = rpi_diagnostics_->getCpuTemperature();
   rpi_interface_pub_->publish(msg);
 }
