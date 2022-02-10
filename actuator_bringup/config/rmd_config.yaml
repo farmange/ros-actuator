@@ -3,52 +3,64 @@
       can_device: "can0"
       actuator_reduction_ratio: 36
       actuator_max_speed: 1080 # 30 deg/s * 36
-      actuator_max_accel: 700 # 19.44 deg/s²* 36
+      # actuator_max_accel: 700 # 19.44 deg/s² * 36
+      actuator_max_accel: 3000 # test
       actuator_current_limit: 1.5 # A
+      loop_rate: 100 # Hz
 
 /actuator_rpi:
    ros__parameters:
+      rpi_loop_rate: 10 # Hz
+      rpi_diag_loop_rate: 1 # Hz
       rpi_switch_limit_pin: 30
       rpi_user_btn_down_pin: 21
       rpi_user_btn_up_pin: 22
       rpi_user_btn_mode_pin: 25
+      rpi_user_led_red_pin: 0
+      rpi_user_led_green_pin: 2
+      rpi_user_led_blue_pin: 3
       rpi_long_press_duration: 2.0
       rpi_inactivity_duration: 1.0
-#  +-----+-----+---------+------+---+---Pi 3B--+---+------+---------+-----+-----+
-#  | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
-#  +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
-#  |     |     |    3.3v |      |   |  1 || 2  |   |      | 5v      |     |     |
-#  |   2 |   8 |   SDA.1 | ALT0 | 1 |  3 || 4  |   |      | 5v      |     |     |
-#  |   3 |   9 |   SCL.1 | ALT0 | 1 |  5 || 6  |   |      | 0v      |     |     |
-#  |   4 |   7 | GPIO. 7 |   IN | 1 |  7 || 8  | 1 | ALT5 | TxD     | 15  | 14  |
-#  |     |     |      0v |      |   |  9 || 10 | 1 | ALT5 | RxD     | 16  | 15  |
-#  |  17 |   0 | GPIO. 0 |   IN | 0 | 11 || 12 | 0 | IN   | GPIO. 1 | 1   | 18  |
-#  |  27 |   2 | GPIO. 2 |   IN | 0 | 13 || 14 |   |      | 0v      |     |     |
-#  |  22 |   3 | GPIO. 3 |   IN | 0 | 15 || 16 | 0 | IN   | GPIO. 4 | 4   | 23  |
-#  |     |     |    3.3v |      |   | 17 || 18 | 0 | IN   | GPIO. 5 | 5   | 24  |
-#  |  10 |  12 |    MOSI | ALT0 | 0 | 19 || 20 |   |      | 0v      |     |     |
-#  |   9 |  13 |    MISO | ALT0 | 0 | 21 || 22 | 1 | IN   | GPIO. 6 | 6   | 25  |
-#  |  11 |  14 |    SCLK | ALT0 | 0 | 23 || 24 | 1 | OUT  | CE0     | 10  | 8   |
-#  |     |     |      0v |      |   | 25 || 26 | 1 | OUT  | CE1     | 11  | 7   |
-#  |   0 |  30 |   SDA.0 |   IN | 1 | 27 || 28 | 1 | IN   | SCL.0   | 31  | 1   |
-#  |   5 |  21 | GPIO.21 |   IN | 1 | 29 || 30 |   |      | 0v      |     |     |
-#  |   6 |  22 | GPIO.22 |   IN | 1 | 31 || 32 | 0 | IN   | GPIO.26 | 26  | 12  |
-#  |  13 |  23 | GPIO.23 |   IN | 0 | 33 || 34 |   |      | 0v      |     |     |
-#  |  19 |  24 | GPIO.24 |   IN | 0 | 35 || 36 | 0 | IN   | GPIO.27 | 27  | 16  |
-#  |  26 |  25 | GPIO.25 |   IN | 0 | 37 || 38 | 0 | IN   | GPIO.28 | 28  | 20  |
-#  |     |     |      0v |      |   | 39 || 40 | 0 | IN   | GPIO.29 | 29  | 21  |
-#  +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
-#  | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
-#  +-----+-----+---------+------+---+---Pi 3B--+---+------+---------+-----+-----+
+
+      # Overview of RPi wiring for Supporter application
+      # (see https://www.waveshare.com/w/upload/2/29/RS485-CAN-HAT-user-manuakl-en.pdf)
+      # +-----+------------+---Pi 3B--+------------+-----+
+      # | wPi |   Name     | Physical |   Name     | wPi |
+      # +-----+------------+----++----+------------+-----+
+      # |     |            |  1 || 2  |            |     |
+      # |   8 |            |  3 || 4  |            |     |
+      # |   9 |            |  5 || 6  |            |     |
+      # |   7 | CAN (RSE)  |  7 || 8  | CAN (TX)   | 15  |
+      # |     |            |  9 || 10 | CAN (RX)   | 16  |
+      # |   0 | LED RED    | 11 || 12 | CAN (CE0)  | 1   |
+      # |   2 | LED GREEN  | 13 || 14 |            |     |
+      # |   3 | LED BLUE   | 15 || 16 |            | 4   |
+      # |     |            | 17 || 18 |            | 5   |
+      # |  12 | CAN (MOSI) | 19 || 20 |            |     |
+      # |  13 | CAN (MISO) | 21 || 22 |  CAN (INT) | 6   |
+      # |  14 | CAN (SCLK) | 23 || 24 |            | 10  |
+      # |     |            | 25 || 26 |            | 11  |
+      # |  30 | SWITCH LIM | 27 || 28 |            | 31  |
+      # |  21 | BTN DOWN   | 29 || 30 |            |     |
+      # |  22 | BTN UP     | 31 || 32 |            | 26  |
+      # |  23 |            | 33 || 34 |            |     |
+      # |  24 |            | 35 || 36 |            | 27  |
+      # |  25 | BTN MODE   | 37 || 38 |            | 28  |
+      # |     |            | 39 || 40 |            | 29  |
+      # +-----+------------+----++----+------------+-----+
+      # | wPi |   Name     | Physical |   Name     | wPi |
+      # +-----+------------+---Pi 3B--+------------+-----+
 
 /supporter_controller:
    ros__parameters:
-      high_velocity: 20.0 # dps
+      high_velocity: 30.0 # dps
       low_velocity: 10.0 # dps
-      velocity_ramp_duration: 5.0 # s
-      slow_velocity_duration: 2.0 # s
+      velocity_ramp_duration: 3.0 # s
+      low_velocity_duration: 1.0 # s
 
-      low_torque_inc: 0.01 # N.m / 0.01 s
-      high_torque_inc: 0.03 # N.m / 0.01 s
+      low_torque_inc: 0.01 # N.m / 0.1 s
+      high_torque_inc: 0.03 # N.m / 0.1 s
       torque_ramp_duration: 5.0 # s
-      slow_torque_duration: 2.0 # s
+      low_torque_duration: 2.0 # s
+
+      loop_rate: 100 # Hz

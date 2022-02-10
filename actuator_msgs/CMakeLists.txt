@@ -16,6 +16,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 "msg/RpiInterface.msg"
 "srv/ButtonModeEvent.srv"
 "srv/SetControlMode.srv"
+"srv/SetRgbLed.srv"
 "action/ActuatorMove.action"
 )
 

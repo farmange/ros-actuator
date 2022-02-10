@@ -85,6 +85,7 @@ private:
   int max_speed_param_;
   int max_accel_param_;
   float current_limit_param_;
+  int loop_rate_param_;
 };
 
 #endif

@@ -21,6 +21,7 @@ ActuatorDriver::ActuatorDriver(const std::string& node_name, bool intra_process_
   this->declare_parameter<int>("actuator_max_speed", 1080);
   this->declare_parameter<int>("actuator_max_accel", 700);
   this->declare_parameter<float>("actuator_current_limit", 0.0);
+  this->declare_parameter<int>("loop_rate", 100);
 
   control_command_.mode.id = ControlModeMsg::ID_MODE_OFF;
   control_command_.position = 0.0;
@@ -47,6 +48,11 @@ ActuatorDriver::on_configure(const rclcpp_lifecycle::State&)
   init_services_();
   init_publishers_();
   init_subscribers_();
+  if (loop_rate_param_ <= 0)
+  {
+    RCLCPP_ERROR(get_logger(), "Wrong sampling frequency value (%d) for driver thread", loop_rate_param_);
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
+  }
 
   comm_ = std::make_shared<RMDComm>(this);
   BaseComm::CommStatus_t init_result = comm_->init(can_device_param_, static_cast<uint8_t>(reduction_ratio_param_),
@@ -65,7 +71,9 @@ ActuatorDriver::on_configure(const rclcpp_lifecycle::State&)
   actuator_stop_();
 
   RCLCPP_INFO(get_logger(), "Initialize timer for control loop");
-  timer_ = this->create_wall_timer(10ms, std::bind(&ActuatorDriver::control_loop_cb_, this));
+  std::chrono::duration<double> period(1.0 / loop_rate_param_);
+  timer_ = this->create_wall_timer(std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+                                   std::bind(&ActuatorDriver::control_loop_cb_, this));
   timer_->cancel();
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -134,12 +142,14 @@ void ActuatorDriver::init_parameters_()
   this->get_parameter("actuator_max_speed", max_speed_param_);
   this->get_parameter("actuator_max_accel", max_accel_param_);
   this->get_parameter("actuator_current_limit", current_limit_param_);
+  this->get_parameter("loop_rate", loop_rate_param_);
 
   RCLCPP_DEBUG(get_logger(), "can_device : %s", can_device_param_.c_str());
   RCLCPP_DEBUG(get_logger(), "actuator_reduction_ratio : %d", reduction_ratio_param_);
   RCLCPP_DEBUG(get_logger(), "actuator_max_speed : %d", max_speed_param_);
   RCLCPP_DEBUG(get_logger(), "actuator_max_accel : %d", max_accel_param_);
   RCLCPP_DEBUG(get_logger(), "actuator_current_limit : %f", current_limit_param_);
+  RCLCPP_DEBUG(get_logger(), "loop_rate : %d", loop_rate_param_);
 }
 
 void ActuatorDriver::init_services_()
@@ -176,7 +186,6 @@ void ActuatorDriver::clear_subscribers_()
 
 void ActuatorDriver::control_loop_cb_()
 {
-  // RCLCPP_INFO(get_logger(), "ActuatorDriver::control_loop_cb_");
   actuator_->read();
 
   if (control_command_.mode.id == ControlModeMsg::ID_MODE_OFF)
@@ -205,13 +214,11 @@ void ActuatorDriver::control_loop_cb_()
   actuator_state_.mode = control_command_.mode;
 
   actuator_state_pub_->publish(actuator_state_);
-  // RCLCPP_INFO(get_logger(), "ActuatorDriver::control_loop_cb_ end...");
 }
 
 void ActuatorDriver::control_command_cb_(const ControlCommandMsg::SharedPtr msg)
 {
-  RCLCPP_DEBUG(this->get_logger(),
-               "Control command message received (mode.id: %d | position: %f | velocity: %f | torque: %f)",
+  RCLCPP_DEBUG(this->get_logger(), "Control command received (mode.id: %d | position: %f | velocity: %f | torque: %f)",
                msg->mode.id, msg->position, msg->velocity, msg->torque);
   control_command_ = *msg;
 }

@@ -33,7 +33,7 @@ ActuatorRpi::on_configure(const rclcpp_lifecycle::State&)
 
   if (wiringPiSetup() == -1)
   {
-    RCLCPP_INFO(get_logger(), "wiringPiSetup error !");
+    RCLCPP_ERROR(get_logger(), "wiringPiSetup error !");
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
   }
 
