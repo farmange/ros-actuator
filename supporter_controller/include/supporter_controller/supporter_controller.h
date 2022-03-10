@@ -72,7 +72,7 @@ private:
   bool torque_preset_crossing_detected_;
   double torque_preset_param_;
   double save_default_mode_duration_param_;
-  rclcpp::Time save_default_mode_start_time_;
+  int save_default_mode_blink_rate_param_;
 
   float high_velocity_param_;
   float low_velocity_param_;
@@ -96,9 +96,15 @@ private:
   double long_vibration_amplitude_param_;
   double long_vibration_period_param_;
   double long_vibration_duration_param_;
-  rclcpp::Time save_torque_start_time_;
-  rclcpp::Time stall_torque_start_time_;
+  double vibration_init_position_;
+  double vibration_toggle_;
+  int vibration_counter_;
+  int vibration_counter_end_;
+  int vibration_counter_target_;
 
+  double position_upper_limit_param_;
+  double position_lower_limit_param_;
+  double torque_control_velocity_protection_param_;
   ControlModeMsg default_control_mode_param_;
 
 private:
@@ -114,9 +120,9 @@ private:
   void actuator_state_cb_(const ActuatorStateMsg::SharedPtr msg);
 
   void control_loop_cb_();
-  void set_rgb_led_(uint8_t led_r, uint8_t led_g, uint8_t led_b, uint8_t led_blink_speed);
-  void set_rgb_led_();
+  void set_rgb_led_(uint8_t led_r, uint8_t led_g, uint8_t led_b, uint8_t led_blink_rate);
   void adapt_velocity_(float& velocity_cmd);
+  void adapt_velocity_near_limit_(float& velocity_cmd);
   void adapt_torque_(float& torque_cmd, const double& torque_increment);
 
   /* FSM engine */
@@ -174,6 +180,7 @@ private:
   void state_stall_torque_preset_exit_();
   void state_change_mode_enter_();
   void state_save_default_mode_enter_();
+  void state_save_default_mode_update_();
 
   /* FMS init function */
   void init_fsm_();

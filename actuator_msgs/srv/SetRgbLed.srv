@@ -1,5 +1,5 @@
-uint8 r
-uint8 g
-uint8 b
-uint8 blink_speed # multiple of 10 ms
+uint8 r # 0..255
+uint8 g # 0..255
+uint8 b # 0..255
+uint8 blink_rate # Hz
 ---

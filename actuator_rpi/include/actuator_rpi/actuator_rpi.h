@@ -37,7 +37,8 @@ private:
 
   rclcpp::TimerBase::SharedPtr timer_;
   int rpi_loop_rate_;
-
+  rclcpp::CallbackGroup::SharedPtr callback_group_thread1_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_thread2_;
   void init_parameters_();
   void init_publishers_();
   void clear_publishers_();

@@ -188,23 +188,24 @@ void ActuatorDriver::control_loop_cb_()
 {
   actuator_->read();
 
+  actuator_->set_torque_command(control_command_.torque);
+  actuator_->set_position_command(control_command_.position);
+  actuator_->set_speed_command(control_command_.velocity);
+
   if (control_command_.mode.id == ControlModeMsg::ID_MODE_OFF)
   {
     actuator_->stop();
   }
   else if (control_command_.mode.id == ControlModeMsg::ID_MODE_TORQUE)
   {
-    actuator_->set_torque_command(control_command_.torque);
     actuator_->send_torque_cmd();
   }
   else if (control_command_.mode.id == ControlModeMsg::ID_MODE_POSITION)
   {
-    actuator_->set_position_command(control_command_.position);
     actuator_->send_position_cmd();
   }
   else if (control_command_.mode.id == ControlModeMsg::ID_MODE_SPEED)
   {
-    actuator_->set_speed_command(control_command_.velocity);
     actuator_->send_speed_cmd();
   }
 

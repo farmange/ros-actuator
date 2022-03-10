@@ -22,35 +22,6 @@ from ament_index_python.packages import get_package_share_directory
 
 import lifecycle_msgs.msg
 
-
-# from launch_ros.substitutions import FindPackageShare
-# from launch import LaunchDescription
-# from launch_ros.actions import Node
-
-
-# import launch
-
-
-# from launch.actions import (DeclareLaunchArgument, EmitEvent, ExecuteProcess,
-#                             LogInfo, RegisterEventHandler, TimerAction)
-# from launch.conditions import IfCondition
-# from launch.event_handlers import (OnExecutionComplete, OnProcessExit,
-#                                 OnProcessIO, OnProcessStart, OnShutdown)
-# from launch.events import Shutdown
-# from launch.substitutions import (EnvironmentVariable, FindExecutable,
-#                                 LaunchConfiguration, LocalSubstitution,
-#                                 PythonExpression)
-
-
-# from launch_ros.events.lifecycle import ChangeState
-# from launch.events import matches_action
-
-# import launch_ros.actions  # noqa: E402
-# import launch_ros.events  #n oqa: E402
-# import launch_ros.events.lifecycle  # noqa: E402
-
-# from launch_ros.actions import LifecycleNode
-
 def generate_launch_description():
 
     ns = LaunchConfiguration('ns')
@@ -87,16 +58,6 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', "actuator_rpi:=debug"],
     )
 
-    supporter_controller_node = LifecycleNode(
-        package='supporter_controller',
-        namespace=ns,
-        executable='supporter_controller',
-        name='supporter_controller',
-        parameters=[config_file_path],
-        prefix=['stdbuf -o L'],
-        arguments=['--ros-args', '--log-level', "supporter_controller:=debug"],
-    )
-
     # Make the talker node take the 'configure' transition.
     emit_event_to_request_actuator_driver_does_configure_transition = EmitEvent(
         event=ChangeState(
@@ -109,14 +70,6 @@ def generate_launch_description():
     emit_event_to_request_actuator_rpi_does_configure_transition = EmitEvent(
         event=ChangeState(
             lifecycle_node_matcher=matches_action(actuator_rpi_node),
-            transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
-        )
-    )
-
-    # Make the talker node take the 'configure' transition.
-    emit_event_to_request_supporter_controller_does_configure_transition = EmitEvent(
-        event=ChangeState(
-            lifecycle_node_matcher=matches_action(supporter_controller_node),
             transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
         )
     )
@@ -148,27 +101,10 @@ def generate_launch_description():
                     lifecycle_node_matcher=matches_action(actuator_rpi_node),
                     transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE,
                 )),
-                emit_event_to_request_supporter_controller_does_configure_transition,
+                # emit_event_to_request_supporter_controller_does_configure_transition,
             ],
         )
     )
-
-    # When the node reaches the 'inactive' state, make it take the 'activate' transition.
-    event_supporter_controller_reaches_inactive_state = RegisterEventHandler(
-        OnStateTransition(
-            target_lifecycle_node=supporter_controller_node, goal_state='inactive',
-            entities=[
-                LogInfo(
-                    msg="> supporter_controller_node reached the 'inactive' state, 'activating'."),
-                EmitEvent(event=ChangeState(
-                    lifecycle_node_matcher=matches_action(supporter_controller_node),
-                    transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE,
-                )),
-            ],
-        )
-    )
-
-
 
     ### Start building the launch description ###
     ld = LaunchDescription()
@@ -176,18 +112,13 @@ def generate_launch_description():
     ld.add_action(ns_launch_arg)
     ld.add_action(actuator_driver_node)
     ld.add_action(actuator_rpi_node)
-    ld.add_action(supporter_controller_node)
 
-    ld.add_action(event_actuator_driver_reaches_inactive_state)
+    ld.add_action(event_actuator_driver_reaches_inactive_state)   
     ld.add_action(event_actuator_rpi_reaches_inactive_state)
-    ld.add_action(event_supporter_controller_reaches_inactive_state)
-   
     ld.add_action(emit_event_to_request_actuator_driver_does_configure_transition)
-    # ld.add_action(emit_event_to_request_actuator_rpi_does_configure_transition)
-    # ld.add_action(emit_event_to_request_supporter_controller_does_configure_transition)
 
-
-    print('Starting introspection of launch description...')
+    print('-----------------------------------------------')
+    print(' => ' + os.path.basename(__file__))
     print('-----------------------------------------------')
     print(LaunchIntrospector().format_launch_description(ld))
     print('-----------------------------------------------')

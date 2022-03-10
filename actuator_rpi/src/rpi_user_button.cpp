@@ -12,7 +12,7 @@ using std::placeholders::_2;
 
 RpiUserButton::RpiUserButton(rclcpp_lifecycle::LifecycleNode* node) : node_(node)
 {
-  led_blink_speed_ = 0;
+  led_blink_rate_ = 0;
   led_blink_counter_ = 0;
   led_blink_state_ = true;
   btn_mode_long_press_detected_ = false;
@@ -83,6 +83,8 @@ void RpiUserButton::init_parameters_()
   node_->declare_parameter<double>("btn_updown_inactivity_duration", 0.0);
   node_->declare_parameter<double>("btn_mode_long_press_duration", 0.0);
   node_->declare_parameter<double>("btn_mode_inactivity_duration", 0.0);
+
+  node_->get_parameter("loop_rate", loop_rate_);
   node_->get_parameter("btn_down_pin", btn_down_pin_);
   node_->get_parameter("btn_up_pin", btn_up_pin_);
   node_->get_parameter("btn_mode_pin", btn_mode_pin_);
@@ -105,16 +107,24 @@ void RpiUserButton::init_services_()
 
 void RpiUserButton::update_led_()
 {
-  if (led_blink_speed_ == 0)
+  if (led_blink_rate_ == 0)
   {
     led_blink_state_ = true;
   }
   else
   {
-    if (led_blink_counter_ > led_blink_speed_)
+    int counter_target = loop_rate_ / led_blink_rate_;
+    if (counter_target == 0)
     {
-      led_blink_counter_ = 0;
-      led_blink_state_ = !led_blink_state_;
+      led_blink_state_ = true;
+    }
+    else
+    {
+      if (led_blink_counter_ > counter_target)
+      {
+        led_blink_counter_ = 0;
+        led_blink_state_ = !led_blink_state_;
+      }
     }
   }
   led_blink_counter_++;
@@ -251,9 +261,9 @@ void RpiUserButton::process_button_updown_state_(const bool& button_up_state, co
   btn_down_prev_state_ = button_down_state;
 }
 
-void RpiUserButton::set_rgb_led_(uint8_t r, uint8_t g, uint8_t b, uint8_t blink_speed)
+void RpiUserButton::set_rgb_led_(uint8_t r, uint8_t g, uint8_t b, uint8_t blink_rate)
 {
-  led_blink_speed_ = blink_speed;
+  led_blink_rate_ = blink_rate;
   /* Warning : due to high side led wiring, output states are inverted
    * so that 0 mean 100% while 100 mean 0% .*/
   red_led_state_ = 100 - scale_rgb_pwm_(r);
@@ -270,10 +280,10 @@ void RpiUserButton::set_rgb_led_(uint8_t r, uint8_t g, uint8_t b, uint8_t blink_
 void RpiUserButton::set_rgb_led_cb_(const std::shared_ptr<SetRgbLedSrv::Request> request,
                                     std::shared_ptr<SetRgbLedSrv::Response> response)
 {
-  RCLCPP_DEBUG(node_->get_logger(), "Set RGB LEDs with R:%d | G:%d | B:%d | blink_speed:%d", request->r, request->g,
-               request->b, request->blink_speed);
+  RCLCPP_DEBUG(node_->get_logger(), "Set RGB LEDs with R:%d | G:%d | B:%d | blink_rate:%d", request->r, request->g,
+               request->b, request->blink_rate);
 
-  set_rgb_led_(request->r, request->g, request->b, request->blink_speed);
+  set_rgb_led_(request->r, request->g, request->b, request->blink_rate);
 }
 
 int RpiUserButton::scale_rgb_pwm_(uint8_t color)

@@ -103,6 +103,9 @@ void SupporterController::init_parameters_()
   this->declare_parameter<double>("torque_ramp_duration", 2.0);
   this->declare_parameter<double>("low_torque_duration", 5.0);
 
+  this->declare_parameter<double>("save_default_mode_duration", 1.0);
+  this->declare_parameter<int>("save_default_mode_blink_rate", 10);
+
   this->declare_parameter<int>("loop_rate", 100);
   this->declare_parameter<double>("short_vibration_amplitude", 0.1);
   this->declare_parameter<double>("short_vibration_period", 0.1);
@@ -112,7 +115,10 @@ void SupporterController::init_parameters_()
   this->declare_parameter<double>("long_vibration_duration", 0.2);
   this->declare_parameter<double>("torque_preset", 1.0);
   this->declare_parameter<int>("default_control_mode", 1);
-  this->declare_parameter<double>("save_default_mode_duration", 1.0);
+
+  this->declare_parameter<double>("position_upper_limit", 0.0);
+  this->declare_parameter<double>("position_lower_limit", 0.0);
+  this->declare_parameter<double>("torque_control_velocity_protection", 0.0);
 
   this->get_parameter("high_velocity", high_velocity_param_);
   this->get_parameter("low_velocity", low_velocity_param_);
@@ -124,6 +130,9 @@ void SupporterController::init_parameters_()
   this->get_parameter("torque_ramp_duration", torque_ramp_duration_param_);
   this->get_parameter("low_torque_duration", low_torque_duration_param_);
 
+  this->get_parameter("save_default_mode_duration", save_default_mode_duration_param_);
+  this->get_parameter("save_default_mode_blink_rate", save_default_mode_blink_rate_param_);
+
   this->get_parameter("loop_rate", loop_rate_param_);
   this->get_parameter("short_vibration_amplitude", short_vibration_amplitude_param_);
   this->get_parameter("short_vibration_period", short_vibration_period_param_);
@@ -133,7 +142,10 @@ void SupporterController::init_parameters_()
   this->get_parameter("long_vibration_duration", long_vibration_duration_param_);
   this->get_parameter("torque_preset", torque_preset_param_);
   this->get_parameter("default_control_mode", default_control_mode_param_.id);
-  this->get_parameter("save_default_mode_duration", save_default_mode_duration_param_);
+
+  this->get_parameter("position_upper_limit", position_upper_limit_param_);
+  this->get_parameter("position_lower_limit", position_lower_limit_param_);
+  this->get_parameter("torque_control_velocity_protection", torque_control_velocity_protection_param_);
 
   RCLCPP_DEBUG(get_logger(), "Initialize parameters with following value...");
   RCLCPP_DEBUG(get_logger(), "high_velocity: %f", high_velocity_param_);
@@ -146,6 +158,9 @@ void SupporterController::init_parameters_()
   RCLCPP_DEBUG(get_logger(), "torque_ramp_duration: %f", torque_ramp_duration_param_);
   RCLCPP_DEBUG(get_logger(), "low_torque_duration: %f", low_torque_duration_param_);
 
+  RCLCPP_DEBUG(get_logger(), "save_default_mode_duration: %f", save_default_mode_duration_param_);
+  RCLCPP_DEBUG(get_logger(), "save_default_mode_blink_rate: %d", save_default_mode_blink_rate_param_);
+
   RCLCPP_DEBUG(get_logger(), "loop_rate : %d", loop_rate_param_);
   RCLCPP_DEBUG(get_logger(), "short_vibration_amplitude : %f", short_vibration_amplitude_param_);
   RCLCPP_DEBUG(get_logger(), "short_vibration_period : %f", short_vibration_period_param_);
@@ -156,6 +171,10 @@ void SupporterController::init_parameters_()
   RCLCPP_DEBUG(get_logger(), "torque_preset : %f", torque_preset_param_);
   RCLCPP_DEBUG(get_logger(), "default_control_mode : %d (1: torque | 3: speed)", default_control_mode_param_.id);
   RCLCPP_DEBUG(get_logger(), "save_default_mode_duration : %f", save_default_mode_duration_param_);
+
+  RCLCPP_DEBUG(get_logger(), "position_upper_limit : %f", position_upper_limit_param_);
+  RCLCPP_DEBUG(get_logger(), "position_lower_limit : %f", position_lower_limit_param_);
+  RCLCPP_DEBUG(get_logger(), "torque_control_velocity_protection : %f", torque_control_velocity_protection_param_);
 }
 
 void SupporterController::init_publishers_()
@@ -178,6 +197,15 @@ void SupporterController::init_services_()
   button_updown_event_srv_ = this->create_service<ButtonEventSrv>(
       "button_updown_event", std::bind(&SupporterController::button_updown_event_cb_, this, _1, _2));
   set_rgb_led_srv_client_ = this->create_client<SetRgbLedSrv>("set_rgb_led");
+  while (!set_rgb_led_srv_client_->wait_for_service(1s))
+  {
+    if (!rclcpp::ok())
+    {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service \"set_rgb_led\". Exiting.");
+      rclcpp::shutdown();
+    }
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Service \"set_rgb_led\" not available, waiting again...");
+  }
 }
 
 void SupporterController::button_mode_event_cb_(const std::shared_ptr<ButtonEventSrv::Request> request,
@@ -252,7 +280,7 @@ void SupporterController::control_loop_cb_()
     return;
   }
 
-  RCLCPP_WARN(get_logger(), "Current state is '%s' and input event is '%s'",
+  RCLCPP_INFO(get_logger(), "Current state is '%s' and input event is '%s'",
               engine_->getCurrentState()->getName().c_str(), user_input_.toString().c_str());
   engine_->process();
 
@@ -261,13 +289,13 @@ void SupporterController::control_loop_cb_()
   return;
 }
 
-void SupporterController::set_rgb_led_(uint8_t led_r, uint8_t led_g, uint8_t led_b, uint8_t led_blink_speed)
+void SupporterController::set_rgb_led_(uint8_t led_r, uint8_t led_g, uint8_t led_b, uint8_t led_blink_rate)
 {
   auto request = std::make_shared<SetRgbLedSrv::Request>();
   request->r = led_r;
   request->g = led_g;
   request->b = led_b;
-  request->blink_speed = led_blink_speed;
+  request->blink_rate = led_blink_rate;
 
   if (set_rgb_led_srv_client_->service_is_ready())
   {
@@ -277,66 +305,6 @@ void SupporterController::set_rgb_led_(uint8_t led_r, uint8_t led_g, uint8_t led
   {
     RCLCPP_WARN(this->get_logger(), "No service server found to set rgb led");
   }
-}
-
-void SupporterController::set_rgb_led_()
-{
-  // uint8_t led_r, led_g, led_b, led_blink_speed = 0;
-  // if (control_mode_request_.id == ControlModeMsg::ID_MODE_SPEED)
-  // {
-  //   /* BLINK BLUE : mode speed inactive */
-  //   led_r = 0;
-  //   led_g = 0;
-  //   led_b = 255;
-  //   led_blink_speed = 10;
-  // }
-  // else if (control_mode_request_.id == ControlModeMsg::ID_MODE_TORQUE)
-  // {
-  //   /* BLINK GREEN : mode torque inactive */
-  //   led_r = 0;
-  //   led_g = 255;
-  //   led_b = 0;
-  //   led_blink_speed = 10;
-  // }
-  // else if (control_command_.mode.id == ControlModeMsg::ID_MODE_SPEED)
-  // {
-  //   /* SOLID BLUE : mode speed active */
-  //   led_r = 0;
-  //   led_g = 0;
-  //   led_b = 255;
-  //   led_blink_speed = 0;
-  // }
-
-  // else if (control_command_.mode.id == ControlModeMsg::ID_MODE_TORQUE)
-  // {
-  //   /* SOLID GREEN : mode torque active */
-  //   led_r = 0;
-  //   led_g = 255;
-  //   led_b = 0;
-  //   led_blink_speed = 0;
-  // }
-  // else
-  // {
-  //   /* RED : anything else (e.g. error) */
-  //   led_r = 255;
-  //   led_g = 0;
-  //   led_b = 0;
-  // }
-
-  // auto request = std::make_shared<SetRgbLedSrv::Request>();
-  // request->r = led_r;
-  // request->g = led_g;
-  // request->b = led_b;
-  // request->blink_speed = led_blink_speed;
-
-  // if (set_rgb_led_srv_client_->service_is_ready())
-  // {
-  //   set_rgb_led_srv_client_->async_send_request(request);
-  // }
-  // else
-  // {
-  //   RCLCPP_WARN(this->get_logger(), "No service server found to set rgb led");
-  // }
 }
 
 void SupporterController::adapt_velocity_(float& velocity_cmd)
@@ -385,6 +353,52 @@ void SupporterController::adapt_velocity_(float& velocity_cmd)
   {
     RCLCPP_DEBUG(get_logger(), "Linearly decrease velocity command removing %f dps", step);
     velocity_cmd = -low_velocity_param_ - step;
+  }
+}
+
+void SupporterController::adapt_velocity_near_limit_(float& velocity_cmd)
+{
+  double slow_down_delta_pos = 10.0;
+  /* Upper limit handling */
+  if (actuator_state_.position > position_upper_limit_param_)
+  {
+    /* If we have exceed the upper limit, we can only go in reverse direction */
+    if (velocity_cmd > 0.0)
+    {
+      RCLCPP_DEBUG(get_logger(), "Upper limit overshooted. Cannot move in this direction !");
+      velocity_cmd = 0.0;
+    }
+  }
+  else if (velocity_cmd > 0.0)
+  {
+    double delta_pos = position_upper_limit_param_ - actuator_state_.position;
+    if (delta_pos < slow_down_delta_pos)  //(abs(velocity_cmd) / reduced_speed_divisor))
+    {
+      RCLCPP_DEBUG(get_logger(), "Close to upper limit, automatic slow down ! ");
+      /* In this code section, we exponentially decrease the speed as we get closer to the defined limit */
+      velocity_cmd *= (delta_pos / slow_down_delta_pos);
+    }
+  }
+
+  /* Lower limit handling */
+  if (actuator_state_.position < position_lower_limit_param_)
+  {
+    /* If we have exceed the lower limit, we can only go in direct direction */
+    if (velocity_cmd < 0.0)
+    {
+      RCLCPP_DEBUG(get_logger(), "Lower limit overshooted. Cannot move in this direction !");
+      velocity_cmd = 0.0;
+    }
+  }
+  else if (velocity_cmd < 0.0)
+  {
+    double delta_pos = actuator_state_.position - position_lower_limit_param_;
+    if (delta_pos < slow_down_delta_pos)
+    {
+      RCLCPP_DEBUG(get_logger(), "Close to lower limit, automatic slow down ! ");
+      /* In this code section, we exponentially decrease the speed as we get closer to the defined limit */
+      velocity_cmd *= (delta_pos / slow_down_delta_pos);
+    }
   }
 }
 
@@ -472,6 +486,7 @@ void SupporterController::init_fsm_()
 
   state_save_default_mode_ = new State<SupporterController>(this, engine_, "SAVE DEFAULT MODE");
   state_save_default_mode_->registerEnterFcn(&SupporterController::state_save_default_mode_enter_);
+  state_save_default_mode_->registerUpdateFcn(&SupporterController::state_save_default_mode_update_);
 
   /* Transitions definition */
   tr_to_speed_control_ = new Transition<SupporterController>(this, engine_, state_speed_control_);
@@ -550,7 +565,9 @@ bool SupporterController::tr_to_torque_control_cb_()
 
 bool SupporterController::tr_to_stopped_cb_()
 {
-  return ((user_input_ == FsmUserInput::ButtonModeDoublePress) || (engine_->getCurrentState() == state_change_mode_) ||
+  return (((engine_->getCurrentState() == state_torque_control_) &&
+           (abs(actuator_state_.speed) > torque_control_velocity_protection_param_)) ||
+          (user_input_ == FsmUserInput::ButtonModeDoublePress) || (engine_->getCurrentState() == state_change_mode_) ||
           (engine_->getCurrentState() == state_uninitialized_));
 }
 
@@ -561,9 +578,7 @@ bool SupporterController::tr_to_save_torque_preset_cb_()
 
 bool SupporterController::tr_exit_save_torque_preset_cb_()
 {
-  return ((get_clock()->now() - save_torque_start_time_) >
-          rclcpp::Duration::from_seconds(long_vibration_duration_param_));
-  ;
+  return (vibration_counter_ >= vibration_counter_end_);
 }
 
 bool SupporterController::tr_to_stall_torque_preset_cb_()
@@ -573,9 +588,7 @@ bool SupporterController::tr_to_stall_torque_preset_cb_()
 
 bool SupporterController::tr_exit_stall_torque_preset_cb_()
 {
-  return ((get_clock()->now() - stall_torque_start_time_) >
-          rclcpp::Duration::from_seconds(short_vibration_duration_param_));
-  ;
+  return (vibration_counter_ >= vibration_counter_end_);
 }
 
 bool SupporterController::tr_to_change_mode_cb_()
@@ -590,23 +603,19 @@ bool SupporterController::tr_to_save_default_mode_cb_()
 
 bool SupporterController::tr_exit_save_default_mode_to_stopped_cb_()
 {
-  return ((control_command_.mode.id == ControlModeMsg::ID_MODE_OFF) &&
-          ((get_clock()->now() - save_default_mode_start_time_) >
-           rclcpp::Duration::from_seconds(save_default_mode_duration_param_)));
+  return ((control_command_.mode.id == ControlModeMsg::ID_MODE_OFF) && (vibration_counter_ >= vibration_counter_end_));
 }
 
 bool SupporterController::tr_exit_save_default_mode_to_speed_control_cb_()
 {
   return ((control_command_.mode.id == ControlModeMsg::ID_MODE_SPEED) &&
-          ((get_clock()->now() - save_default_mode_start_time_) >
-           rclcpp::Duration::from_seconds(save_default_mode_duration_param_)));
+          (vibration_counter_ >= vibration_counter_end_));
 }
 
 bool SupporterController::tr_exit_save_default_mode_to_torque_control_cb_()
 {
   return ((control_command_.mode.id == ControlModeMsg::ID_MODE_TORQUE) &&
-          ((get_clock()->now() - save_default_mode_start_time_) >
-           rclcpp::Duration::from_seconds(save_default_mode_duration_param_)));
+          (vibration_counter_ >= vibration_counter_end_));
 }
 
 /*** FSM STATE ***/
@@ -615,11 +624,11 @@ void SupporterController::state_stopped_enter_()
   new_control_command_received_ = false;
   if (current_control_mode_.id == ControlModeMsg::ID_MODE_SPEED)
   {
-    set_rgb_led_(0, 0, 255, 50);
+    set_rgb_led_(0, 0, 255, 1);
   }
   else if (current_control_mode_.id == ControlModeMsg::ID_MODE_TORQUE)
   {
-    set_rgb_led_(0, 255, 0, 50);
+    set_rgb_led_(0, 255, 0, 1);
   }
 }
 
@@ -642,6 +651,8 @@ void SupporterController::state_speed_control_enter_()
 
 void SupporterController::state_speed_control_update_()
 {
+  float prev_velocity_cmd = control_command_.velocity;
+
   control_command_.mode.id = ControlModeMsg::ID_MODE_SPEED;
   control_command_.position = 0.0;
   control_command_.velocity = 0.0;
@@ -651,16 +662,22 @@ void SupporterController::state_speed_control_update_()
   {
     /* UP*/
     control_command_.velocity = low_velocity_param_;
-    RCLCPP_ERROR(get_logger(), "UP velocity:%f", control_command_.velocity);
   }
   else if (!rpi_interface_.user_button_up && rpi_interface_.user_button_down)
   {
     /* DOWN */
     control_command_.velocity = -low_velocity_param_;
-    RCLCPP_ERROR(get_logger(), "DOWN velocity:%f", control_command_.velocity);
+  }
+
+  /* Detect direction change to reinitialize the velocity rampup */
+  if (((control_command_.velocity < 0.0) && (prev_velocity_cmd > 0.0)) ||
+      ((control_command_.velocity > 0.0) && (prev_velocity_cmd < 0.0)))
+  {
+    adapt_vel_rising_edge_detected_ = true;
   }
 
   adapt_velocity_(control_command_.velocity);
+  adapt_velocity_near_limit_(control_command_.velocity);
 
   RCLCPP_DEBUG(get_logger(), "Control velocity command '%f'", control_command_.velocity);
 
@@ -682,29 +699,35 @@ void SupporterController::state_torque_control_update_()
   control_command_.position = 0.0;
   control_command_.velocity = 0.0;
 
+  double prev_torque_increment_ = torque_increment_;
   if (rpi_interface_.user_button_up && !rpi_interface_.user_button_down)
   {
     /* UP*/
     torque_increment_ = low_torque_inc_param_ / (loop_rate_param_ * 1.0);
-    RCLCPP_ERROR(get_logger(), "UP torque_increment_:%f", torque_increment_);
   }
   else if (!rpi_interface_.user_button_up && rpi_interface_.user_button_down)
   {
     /* DOWN */
     torque_increment_ = -low_torque_inc_param_ / (loop_rate_param_ * 1.0);
-    RCLCPP_ERROR(get_logger(), "DOWN torque_increment_:%f", torque_increment_);
   }
   else
   {
     torque_increment_ = 0;
   }
+  /* Detect direction change to reinitialize the velocity rampup */
+  if (((torque_increment_ < 0.0) && (prev_torque_increment_ > 0.0)) ||
+      ((torque_increment_ > 0.0) && (prev_torque_increment_ < 0.0)))
+  {
+    adapt_torque_rising_edge_detected_ = true;
+  }
+
   float torque_adapted = control_command_.torque;
   adapt_torque_(torque_adapted, torque_increment_);
 
   if (torque_preset_param_ != 0 && control_command_.torque != torque_preset_param_)
   {
-    if (((control_command_.torque < torque_preset_param_) && (torque_adapted > torque_preset_param_)) ||
-        ((control_command_.torque > torque_preset_param_) && (torque_adapted < torque_preset_param_)))
+    if (((control_command_.torque < torque_preset_param_) && (torque_adapted >= torque_preset_param_)) ||
+        ((control_command_.torque > torque_preset_param_) && (torque_adapted <= torque_preset_param_)))
     {
       torque_preset_crossing_detected_ = true;
       torque_adapted = torque_preset_param_;
@@ -721,65 +744,103 @@ void SupporterController::state_torque_control_update_()
   control_command_pub_->publish(control_command_);
 }
 
-/********************************/
 void SupporterController::state_save_torque_preset_enter_()
 {
-  RCLCPP_DEBUG(get_logger(), "Save torque command '%f' as the new torque preset", control_command_.torque);
-  new_control_command_received_ = false;
+  RCLCPP_INFO(get_logger(), "Save torque command '%f' as the new torque preset", control_command_.torque);
   torque_preset_param_ = control_command_.torque;
-  save_torque_start_time_ = get_clock()->now();
+
+  vibration_init_position_ = actuator_state_.position;
+  vibration_counter_ = 0;
+  vibration_counter_end_ = static_cast<int>(round(long_vibration_duration_param_ * loop_rate_param_));
+  vibration_counter_target_ = static_cast<int>(round((long_vibration_period_param_ * loop_rate_param_) / 2.0));
+  vibration_toggle_ = true;
 }
 
 void SupporterController::state_save_torque_preset_update_()
 {
   /* long vibration*/
+  if (vibration_counter_target_ > 0)
+  {
+    control_command_.mode.id = ControlModeMsg::ID_MODE_POSITION;
+    if (vibration_counter_ % vibration_counter_target_ == 0)
+    {
+      vibration_toggle_ = !vibration_toggle_;
+    }
+    if (vibration_counter_ >= vibration_counter_end_ - 1)
+    {
+      control_command_.position = vibration_init_position_;
+    }
+    else
+    {
+      if (vibration_toggle_)
+      {
+        control_command_.position = vibration_init_position_ + long_vibration_amplitude_param_;
+      }
+      else
+      {
+        control_command_.position = vibration_init_position_ - long_vibration_amplitude_param_;
+      }
+    }
+  }
+
+  vibration_counter_++;
+  control_command_pub_->publish(control_command_);
 }
 
 void SupporterController::state_save_torque_preset_exit_()
 {
-}
-
-/********************************/
-void SupporterController::state_stall_torque_preset_enter_()
-{
-  new_control_command_received_ = false;
-  stall_torque_start_time_ = get_clock()->now();
-
-  control_command_.mode.id = ControlModeMsg::ID_MODE_POSITION;
-  control_command_.position = actuator_state_.position + short_vibration_amplitude_param_;
-  control_command_pub_->publish(control_command_);
-}
-
-void SupporterController::state_stall_torque_preset_update_()
-{
-  /* short vibration */
-  control_command_.mode.id = ControlModeMsg::ID_MODE_POSITION;
-
-  rclcpp::Duration duration = (get_clock()->now() - stall_torque_start_time_);
-  if (fmod(abs(duration.seconds()), short_vibration_duration_param_) < (short_vibration_duration_param_ / 2.0))
-  {
-    control_command_.position = actuator_state_.position + short_vibration_amplitude_param_;
-  }
-  else
-  {
-    control_command_.position = actuator_state_.position - short_vibration_amplitude_param_;
-  }
-  control_command_pub_->publish(control_command_);
-}
-
-void SupporterController::state_stall_torque_preset_exit_()
-{
-  /* Go back to init position */
-  control_command_.mode.id = ControlModeMsg::ID_MODE_POSITION;
-  control_command_.position = actuator_state_.position;
-  control_command_pub_->publish(control_command_);
-
   /* Restore torque mode */
   control_command_.mode.id = ControlModeMsg::ID_MODE_TORQUE;
   torque_preset_crossing_detected_ = false;
 }
 
-/********************************/
+void SupporterController::state_stall_torque_preset_enter_()
+{
+  vibration_init_position_ = actuator_state_.position;
+  vibration_counter_ = 0;
+  vibration_counter_end_ = static_cast<int>(round(short_vibration_duration_param_ * loop_rate_param_));
+  vibration_counter_target_ = static_cast<int>(round((short_vibration_period_param_ * loop_rate_param_) / 2.0));
+  vibration_toggle_ = true;
+}
+
+void SupporterController::state_stall_torque_preset_update_()
+{
+  /* short vibration */
+  if (vibration_counter_target_ > 0)
+  {
+    control_command_.mode.id = ControlModeMsg::ID_MODE_POSITION;
+    if (vibration_counter_ % vibration_counter_target_ == 0)
+    {
+      vibration_toggle_ = !vibration_toggle_;
+    }
+    if (vibration_counter_ >= vibration_counter_end_ - 1)
+    {
+      control_command_.position = vibration_init_position_;
+    }
+    else
+    {
+      if (vibration_toggle_)
+      {
+        control_command_.position = vibration_init_position_ + short_vibration_amplitude_param_;
+      }
+      else
+      {
+        control_command_.position = vibration_init_position_ - short_vibration_amplitude_param_;
+      }
+    }
+  }
+
+  vibration_counter_++;
+  control_command_pub_->publish(control_command_);
+}
+
+void SupporterController::state_stall_torque_preset_exit_()
+{
+  /* Restore torque mode */
+  control_command_.mode.id = ControlModeMsg::ID_MODE_TORQUE;
+  torque_preset_crossing_detected_ = false;
+}
+
 void SupporterController::state_change_mode_enter_()
 {
   if (current_control_mode_.id == ControlModeMsg::ID_MODE_SPEED)
@@ -799,8 +860,13 @@ void SupporterController::state_change_mode_enter_()
 
 void SupporterController::state_save_default_mode_enter_()
 {
-  RCLCPP_DEBUG(get_logger(), "Save '%d' as the new default mode", current_control_mode_.id);
+  RCLCPP_INFO(get_logger(), "Save '%d' as the new default mode", current_control_mode_.id);
   default_control_mode_param_ = current_control_mode_;
+
+  vibration_init_position_ = actuator_state_.position;
+  vibration_counter_ = 0;
+  vibration_counter_end_ = static_cast<int>(round(save_default_mode_duration_param_ * loop_rate_param_));
+
   if (current_control_mode_.id == ControlModeMsg::ID_MODE_SPEED)
   {
     set_rgb_led_(0, 0, 255, 10);
@@ -809,5 +875,9 @@ void SupporterController::state_save_default_mode_enter_()
   {
     set_rgb_led_(0, 255, 0, 10);
   }
-  save_default_mode_start_time_ = get_clock()->now();
+}
+
+void SupporterController::state_save_default_mode_update_()
+{
+  vibration_counter_++;
 }

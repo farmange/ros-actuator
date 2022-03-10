@@ -49,10 +49,12 @@ def generate_launch_description():
     )
 
     # Include base file (GroupAction prevent ns of this file to be overwritten)
-    include_rmd_base_launch = GroupAction([IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([ThisLaunchFileDir(), '/rmd_actuator.launch.py']),
-        launch_arguments={'ns': ns}.items(),
-    )])
+    include_rmd_base_launch = GroupAction([
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([ThisLaunchFileDir(), '/rmd_actuator_base.launch.py']),
+            launch_arguments={'ns': ns}.items(),
+            )]
+    )
 
     ### Start building the launch description ###
     ld = LaunchDescription()
@@ -62,7 +64,8 @@ def generate_launch_description():
     ld.add_action(actuator_action_node)
 
 
-    print('Starting introspection of launch description...')
+    print('-----------------------------------------------')
+    print(' => ' + os.path.basename(__file__))
     print('-----------------------------------------------')
     print(LaunchIntrospector().format_launch_description(ld))
     print('-----------------------------------------------')

@@ -11,6 +11,8 @@
 #include "actuator_driver/can_driver.h"
 // #include "utils.h"
 
+#include <iostream>
+
 CanDriver::CanDriver()
 {
 }
@@ -26,16 +28,19 @@ CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
   int ret;
   struct ifreq ifr;
   can_device_ = can_device;
-  std::string system_str = std::string("sudo ip link set ") + can_device_ + std::string(" type can bitrate 1000000");
+  std::string system_str;
+  system_str = std::string("sudo ip link set ") + can_device_ + std::string(" down");
   system(system_str.c_str());
-  system_str = std::string("sudo ifconfig ") + can_device_ + std::string(" up");
+  system_str = std::string("sudo ip link set ") + can_device_ + std::string(" type can bitrate 1000000");
+  system(system_str.c_str());
+  system_str = std::string("sudo ip link set ") + can_device_ + std::string(" up");
   system(system_str.c_str());
 
   // Create socket
   socket_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (socket_ < 0)
   {
-    perror("socket PF_CAN failed");
+    RCLCPP_ERROR(rclcpp::get_logger("CanDriver"), "socket PF_CAN failed !");
     return DRIVER_STATUS_SOCKET_ERR;
   }
 
@@ -44,7 +49,7 @@ CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
   ret = ioctl(socket_, SIOCGIFINDEX, &ifr);
   if (ret < 0)
   {
-    perror("ioctl failed");
+    RCLCPP_ERROR(rclcpp::get_logger("CanDriver"), "IOCTL SIOCGIFINDEX failed !");
     return DRIVER_STATUS_IOCTL_ERR;
   }
 
@@ -54,7 +59,7 @@ CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
   ret = bind(socket_, (struct sockaddr*)&addr_, sizeof(addr_));
   if (ret < 0)
   {
-    perror("bind failed");
+    RCLCPP_ERROR(rclcpp::get_logger("CanDriver"), "Bind failed !");
     return DRIVER_STATUS_BIND_ERR;
   }
 
@@ -67,7 +72,14 @@ CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
   int enabled = 1;
   setsockopt(socket_, SOL_CAN_RAW, SO_TIMESTAMP, &enabled, sizeof(enabled));
 
-  printf("Can initialization done.\n");
+  struct timeval tv;
+  tv.tv_sec = 0;
+  tv.tv_usec = 2;
+  setTimeOut_(tv);
+
+  addr_len_ = sizeof(addr_);
+
+  RCLCPP_DEBUG(rclcpp::get_logger("CanDriver"), "Can initialization done.");
 
   return DRIVER_STATUS_OK;
 }
@@ -75,47 +87,35 @@ CanDriver::DriverStatus_t CanDriver::init(const std::string& can_device)
 CanDriver::DriverStatus_t CanDriver::sendReceive(const SendFrame_t& sendframe, ReceiveFrame_t& receiveframe)
 {
   int nbytes = 1;
-  struct timeval tv;
-  socklen_t len = sizeof(addr_);
-
-  // Workaround: set the minimum timeout possible to empty AFAP the buffer
-  tv.tv_sec = 0;
-  tv.tv_usec = 1;
-  setTimeOut_(tv);
-
-  // Empty the buffer before reading it
-  while (nbytes > 0)
-  {
-    // Empty the buffer
-    nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &len);
-  }
-
-  // Set back timeout to a value for write or read on socketCan
-  tv.tv_usec = 1000;  // 1000
-  setTimeOut_(tv);
 
   // Write on socketCan
   nbytes = write(socket_, &sendframe.frame, sizeof(sendframe.frame));
 
   if (nbytes != sizeof(sendframe.frame))
   {
-    printf("Send Error frame : nbytes != sizeof(sendframe.frame) !\n");
+    RCLCPP_ERROR(rclcpp::get_logger("CanDriver"), "Send Error frame : nbytes != sizeof(sendframe.frame) !");
     return DRIVER_STATUS_WRITE_ERR;
   }
 
-  usleep(10);
-
   // Read on socketCan
-  nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &len);
+  nbytes = recvfrom(socket_, &receiveframe.frame, sizeof(receiveframe.frame), 0, (struct sockaddr*)&addr_, &addr_len_);
 
-  if (nbytes == 0)
+  if (nbytes != sizeof(sendframe.frame))
+  {
+    if (nbytes < 1)
+    {
+      RCLCPP_ERROR(rclcpp::get_logger("CanDriver"), "Receive failed !");
+      return DRIVER_STATUS_READ_ERR;
+    }
+    else
+    {
+      return DRIVER_STATUS_OTHER_ERR;
+    }
+  }
+
+  if (receiveframe.frame.data[0] != sendframe.frame.data[0])
   {
     return DRIVER_STATUS_OTHER_ERR;
-  }
-  else if (nbytes < 1)
-  {
-    perror("Receive failed");
-    return DRIVER_STATUS_READ_ERR;
   }
 
   return DRIVER_STATUS_OK;

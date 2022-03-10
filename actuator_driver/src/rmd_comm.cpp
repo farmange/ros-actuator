@@ -91,12 +91,24 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
   uint16_t raw_encoder;
   int32_t raw_current_position = 0;
   RMDComm::CommStatus_t ret;
+
+  temperature = 0.0;
+  torque = 0.0;
+  ia = 0.0;
+  ib = 0.0;
+  ic = 0.0;
+  iq = 0.0;
+  position = 0.0;
+  speed = 0.0;
+  voltage = 0.0;
+  error = 0;
+
   // Read motor multi turn angle
   int64_t dummy_angle = 0;
   ret = readMultiTurnsAngleCommand_(dummy_angle);
   if (ret != RMDComm::COMM_STATUS_OK)
   {
-    RCLCPP_DEBUG(node_->get_logger(), "readMultiTurnsAngleCommand_ failed !");
+    RCLCPP_ERROR(node_->get_logger(), "readMultiTurnsAngleCommand_ failed !");
     return ret;
   }
   raw_current_position = static_cast<int32_t>(dummy_angle);
@@ -105,7 +117,7 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
   ret = readMotorStatus1_(raw_temperature, raw_voltage, raw_errorstate);
   if (ret != RMDComm::COMM_STATUS_OK)
   {
-    RCLCPP_DEBUG(node_->get_logger(), "readMotorStatus1_ failed !");
+    RCLCPP_ERROR(node_->get_logger(), "readMotorStatus1_ failed !");
     return ret;
   }
 
@@ -113,7 +125,7 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
   ret = readMotorStatus2_(raw_temperature, raw_iq, raw_speed, raw_encoder);
   if (ret != RMDComm::COMM_STATUS_OK)
   {
-    RCLCPP_DEBUG(node_->get_logger(), "readMotorStatus2_ failed !");
+    RCLCPP_ERROR(node_->get_logger(), "readMotorStatus2_ failed !");
     return ret;
   }
 
@@ -121,7 +133,7 @@ RMDComm::CommStatus_t RMDComm::getState(float& temperature, float& torque, float
   ret = readMotorStatus3_(raw_ia, raw_ib, raw_ic);
   if (ret != RMDComm::COMM_STATUS_OK)
   {
-    RCLCPP_DEBUG(node_->get_logger(), "readMotorStatus3_ failed !");
+    RCLCPP_ERROR(node_->get_logger(), "readMotorStatus3_ failed !");
     return ret;
   }
 

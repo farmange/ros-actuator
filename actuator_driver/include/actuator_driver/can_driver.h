@@ -4,9 +4,9 @@
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <sys/socket.h>
-// #include <vector>
 #include <string>
-// #include <fstream>
+
+#include "rclcpp/rclcpp.hpp"
 
 class CanDriver
 {
@@ -43,10 +43,9 @@ private:
   DriverStatus_t setTimeOut_(const struct timeval& timeout);  // /!\ use after socket creation
   std::string can_device_;
   int socket_;
-
   struct timeval tv_;
-
   struct sockaddr_can addr_;
+  socklen_t addr_len_;
 };
 
 #endif

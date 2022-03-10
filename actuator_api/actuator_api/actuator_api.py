@@ -1,15 +1,9 @@
-from rclpy.action import ActionClient
-
-from actuator_msgs.action import ActuatorMove
-from actuator_msgs.msg import ControlMode
-
-
-#####
 import time
 import rclpy
 from rclpy.node import Node
-# from rclpy.duration import Duration
-
+from rclpy.action import ActionClient
+from actuator_msgs.action import ActuatorMove
+from actuator_msgs.msg import ControlMode
 
 class ActuatorApi:
   # Singleton
@@ -25,12 +19,10 @@ class ActuatorApi:
   class __ActuatorApi(Node):
     def __init__(self):
       super().__init__('actuator_api')
-
       self._actuator_move_action_client = ActionClient(self, ActuatorMove, 'actuator_move')
       if(not self._actuator_move_action_client.wait_for_server(timeout_sec=1.0)):
         self.get_logger().error('Action server actuator_move not ready !')
         raise Exception("Action server actuator_move not ready !")
-      
       pass
 
     def move_to(self, position):
@@ -66,7 +58,7 @@ class ActuatorApi:
       return get_action_future.result.success
 
 
-
+# This is an example code to test the ActuatorApi class, do not modify this code
 def main(args=None):
     rclpy.init(args=args)
     print("=== Start test ===")
@@ -94,7 +86,7 @@ def main(args=None):
         print("Result success: " + str(result))
 
         print("Sleep")
-        time.sleep(5)
+        time.sleep(1)
 
         torque = -3.0
         print("Apply torque " + str(torque) + "Nm")
@@ -102,7 +94,7 @@ def main(args=None):
         print("Result success: " + str(result))
 
         print("Sleep")
-        time.sleep(5)
+        time.sleep(1)
 
       print("Stop actuator ")
       result = actuator_api.stop()
@@ -112,8 +104,6 @@ def main(args=None):
       print("Exception")
       print(e)
     print("=== Finish test ===")
-
-
 
 if __name__ == '__main__':
     main()

@@ -5,76 +5,84 @@
       actuator_max_speed: 1080 # 30 deg/s * 36
       # actuator_max_accel: 700 # 19.44 deg/s² * 36
       actuator_max_accel: 10000 # test
-      actuator_current_limit: 1.5 # A
-      loop_rate: 10 # Hz
+      actuator_current_limit: 1.9 # A
+      loop_rate: 100 # Hz
 
 /actuator_rpi:
    ros__parameters:
-      loop_rate: 10 # Hz
+      loop_rate: 50 # Hz
       diag_loop_rate: 1 # Hz
       switch_limit_pin: 30
-      btn_down_pin: 21
-      btn_up_pin: 22
-      btn_mode_pin: 25
+      btn_down_pin: 24
+      btn_up_pin: 25
+      btn_mode_pin: 9
       led_red_pin: 0
       led_green_pin: 2
       led_blue_pin: 3
+      probe_temp_pin: 5
       btn_updown_long_press_duration: 2.0
-      btn_updown_inactivity_duration: 1.0 # not used for instance
+      btn_updown_inactivity_duration: 0.5 # not used for instance
       btn_mode_long_press_duration: 2.0
-      btn_mode_inactivity_duration: 1.0
+      btn_mode_inactivity_duration: 0.5
 
       # Overview of RPi wiring for Supporter application
       # (see https://www.waveshare.com/w/upload/2/29/RS485-CAN-HAT-user-manuakl-en.pdf)
       # +-----+------------+---Pi 3B--+------------+-----+
       # | wPi |   Name     | Physical |   Name     | wPi |
       # +-----+------------+----++----+------------+-----+
-      # |     |            |  1 || 2  |            |     |
-      # |   8 |            |  3 || 4  |            |     |
-      # |   9 |            |  5 || 6  |            |     |
+      # |     | [3.3V]     |  1 || 2  | [5V]       |     |
+      # |   8 |            |  3 || 4  | [5V]       |     |
+      # |   9 | BTN MODE   |  5 || 6  | [GND]      |     |
       # |   7 | CAN (RSE)  |  7 || 8  | CAN (TX)   | 15  |
-      # |     |            |  9 || 10 | CAN (RX)   | 16  |
+      # |     | [GND]      |  9 || 10 | CAN (RX)   | 16  |
       # |   0 | LED RED    | 11 || 12 | CAN (CE0)  | 1   |
-      # |   2 | LED GREEN  | 13 || 14 |            |     |
+      # |   2 | LED GREEN  | 13 || 14 | [GND]      |     |
       # |   3 | LED BLUE   | 15 || 16 |            | 4   |
-      # |     |            | 17 || 18 |            | 5   |
-      # |  12 | CAN (MOSI) | 19 || 20 |            |     |
-      # |  13 | CAN (MISO) | 21 || 22 |  CAN (INT) | 6   |
+      # |     | [3.3V]     | 17 || 18 | PROBE TEMP | 5   |
+      # |  12 | CAN (MOSI) | 19 || 20 | [GND]      |     |
+      # |  13 | CAN (MISO) | 21 || 22 | CAN (INT)  | 6   |
       # |  14 | CAN (SCLK) | 23 || 24 |            | 10  |
-      # |     |            | 25 || 26 |            | 11  |
+      # |     | [GND]      | 25 || 26 |            | 11  |
       # |  30 | SWITCH LIM | 27 || 28 |            | 31  |
-      # |  21 | BTN DOWN   | 29 || 30 |            |     |
-      # |  22 | BTN UP     | 31 || 32 |            | 26  |
-      # |  23 |            | 33 || 34 |            |     |
-      # |  24 |            | 35 || 36 |            | 27  |
-      # |  25 | BTN MODE   | 37 || 38 |            | 28  |
-      # |     |            | 39 || 40 |            | 29  |
+      # |  21 |            | 29 || 30 | [GND]      |     |
+      # |  22 |            | 31 || 32 |            | 26  |
+      # |  23 |            | 33 || 34 | [GND]      |     |
+      # |  24 | BTN DOWN   | 35 || 36 |            | 27  |
+      # |  25 | BTN UP     | 37 || 38 |            | 28  |
+      # |     | [GND]      | 39 || 40 |            | 29  |
       # +-----+------------+----++----+------------+-----+
       # | wPi |   Name     | Physical |   Name     | wPi |
       # +-----+------------+---Pi 3B--+------------+-----+
 
 /supporter_controller:
    ros__parameters:
+      loop_rate: 50 # Hz => period of 0.02 s 
+
       low_velocity: 15.0 # dps
-      high_velocity: 30.0 # dps Must be higher than low_velocity
-      velocity_ramp_duration: 3.0 # s
+      high_velocity: 50.0 # dps Must be higher than low_velocity
+
+      velocity_ramp_duration: 1.5 # s
       low_velocity_duration: 1.0 # s
 
       low_torque_inc: 0.4 # N.m / s (equals to Watt) 
       high_torque_inc: 0.8 # N.m / s (equals to Watt) Must be higher than low_torque_inc
-      torque_ramp_duration: 5.0 # s
-      low_torque_duration: 2.0 # s
+      torque_ramp_duration: 2.0 # s
+      low_torque_duration: 1.0 # s
 
-      loop_rate: 5 # Hz => period of 0.02 s 
-
-      short_vibration_amplitude: 0.2 # deg
+      save_default_mode_duration: 1.0 # s
+      save_default_mode_blink_rate: 10 # s
+      
+      short_vibration_amplitude: 1.0 # deg
       short_vibration_period: 0.2 # s => better if short_vibration_period is a multiple of (2 / loop_rate)
       short_vibration_duration: 0.4 # s => better if short_vibration_duration is a multiple of short_vibration_period
 
-      long_vibration_amplitude: 0.2 # deg
+      long_vibration_amplitude: 1.0 # deg
       long_vibration_period: 0.4 # s => better if long_vibration_period is a multiple of (2 / loop_rate)
       long_vibration_duration: 0.8 # s => better if long_vibration_duration is a multiple of long_vibration_period
 
-      torque_preset: 5.0 # Nm
+      torque_preset: 2.0 # Nm
       default_control_mode: 3  # ID_MODE_TORQUE = 1 | ID_MODE_SPEED = 3
-      save_default_mode_duration: 1.5
+
+      position_upper_limit: 90.0
+      position_lower_limit: 0.0
+      torque_control_velocity_protection: 100.0
